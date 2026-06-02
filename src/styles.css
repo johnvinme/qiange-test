@@ -1,0 +1,305 @@
+/* ============================================================
+ * styles.css — 钱格测试 视觉系统
+ * 气质：暖纸 + 墨黑 + 珊瑚红 + 芥末金。温柔但毒，可截图。
+ * 显示字体「得意黑 Smiley Sans」走 CDN，失败优雅回退系统中文字体。
+ * ============================================================ */
+
+/* 得意黑（CDN，生产环境可自托管以提速）；加载失败自动回退 */
+@font-face {
+  font-family: 'Smiley Sans';
+  src: url('https://cdn.jsdelivr.net/gh/atelier-anchor/smiley-sans@v2.0.1/build/webfont/SmileySans-Oblique.woff2') format('woff2');
+  font-display: swap;
+}
+
+:root {
+  /* —— 调色板（主色压场 + 利落点缀，不做平均分布）—— */
+  --paper:   #F2E9D8;   /* 暖纸底 */
+  --paper-2: #EADFC9;   /* 纸的暗一档 */
+  --ink:     #211C16;   /* 墨黑 */
+  --ink-soft:#5A5247;   /* 次要文字 */
+  --coral:   #FF4D2E;   /* 珊瑚红：能量/$/CTA */
+  --gold:    #E8A33D;   /* 芥末金：高光/排名 */
+  --teal:    #2E7D6B;   /* 静谧绿：躺平/休息 */
+  --line:    #211C16;
+
+  --radius: 18px;
+  --shadow-hard: 5px 5px 0 0 var(--ink);   /* 硬投影，玩具感 */
+  --display: 'Smiley Sans', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --body: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--body);
+  color: var(--ink);
+  background-color: var(--paper);
+  /* 纸张颗粒：极淡的噪点叠加，制造质感而非纯色 */
+  background-image:
+    radial-gradient(var(--paper-2) 1px, transparent 1px),
+    radial-gradient(var(--paper-2) 1px, transparent 1px);
+  background-size: 22px 22px, 22px 22px;
+  background-position: 0 0, 11px 11px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+#app {
+  width: 100%;
+  max-width: 480px;        /* 手机优先，朋友圈传播的物理尺寸 */
+  min-height: 100vh;
+  padding: 28px 22px 48px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* —— 顶部 logo：$ 视觉梗 —— */
+.brand {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.brand .dollar {
+  color: var(--coral);
+  transform: skewX(-8deg);
+  font-weight: 900;
+}
+.brand .brand-name { color: var(--ink); }
+
+/* —— 通用卡片 —— */
+.card {
+  background: #FBF6EA;
+  border: 2.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hard);
+  padding: 26px 22px;
+}
+
+/* —— 标题 —— */
+h1.title {
+  font-family: var(--display);
+  font-size: clamp(40px, 13vw, 60px);
+  line-height: 1.02;
+  letter-spacing: 1px;
+  margin: 18px 0 10px;
+}
+h1.title em { color: var(--coral); font-style: normal; }
+.subtitle { color: var(--ink-soft); font-size: 15px; margin-bottom: 28px; }
+
+/* —— 按钮 —— */
+.btn {
+  font-family: var(--display);
+  font-size: 19px;
+  letter-spacing: 1px;
+  color: var(--paper);
+  background: var(--ink);
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 15px 26px;
+  cursor: pointer;
+  box-shadow: var(--shadow-hard);
+  transition: transform .08s ease, box-shadow .08s ease;
+  width: 100%;
+}
+.btn.coral { background: var(--coral); border-color: var(--coral); }
+.btn:active { transform: translate(5px,5px); box-shadow: 0 0 0 0 var(--ink); }
+
+/* —— 选项卡（性格题）—— */
+.option {
+  width: 100%;
+  text-align: left;
+  background: #FBF6EA;
+  border: 2.5px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: transform .08s ease, background .12s ease, box-shadow .08s ease;
+}
+.option:hover { background: var(--paper-2); }
+.option:active { transform: translate(3px,3px); }
+.option.chosen { background: var(--gold); box-shadow: var(--shadow-hard); }
+
+/* —— 滑块（计算题）—— */
+.q-scene {
+  font-family: var(--display);
+  font-size: 26px;
+  line-height: 1.25;
+  margin-bottom: 24px;
+}
+.q-index { color: var(--coral); font-family: var(--display); font-size: 15px; letter-spacing: 2px; }
+.slider-value {
+  font-family: var(--display);
+  font-size: 44px;
+  color: var(--coral);
+  text-align: center;
+  margin: 8px 0 4px;
+}
+.slider-value .u { font-size: 18px; color: var(--ink-soft); margin-left: 4px; }
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 8px; border-radius: 999px;
+  background: var(--paper-2);
+  border: 2px solid var(--ink);
+  margin: 18px 0 30px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--coral); border: 2.5px solid var(--ink);
+  cursor: pointer; box-shadow: 2px 2px 0 0 var(--ink);
+}
+input[type=range]::-moz-range-thumb {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--coral); border: 2.5px solid var(--ink); cursor: pointer;
+}
+
+/* —— 贱兮兮小人在说话：表情脸 + 气泡 —— */
+.talker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -6px 0 22px;
+  min-height: 60px;
+}
+.face { flex: 0 0 56px; }
+.face-svg {
+  width: 56px; height: 56px;
+  filter: drop-shadow(2px 2px 0 var(--ink));
+  animation: bob 2.2s ease-in-out infinite;
+}
+@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+.face.pop .face-svg { animation: pop .28s ease, bob 2.2s ease-in-out infinite .28s; }
+@keyframes pop { 0%{transform:scale(0.7) rotate(-8deg)} 60%{transform:scale(1.12) rotate(4deg)} 100%{transform:scale(1)} }
+
+.bubble {
+  position: relative;
+  flex: 1;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 12px 14px;
+  border-radius: 14px;
+  min-height: 24px;
+}
+/* 气泡指向脸的小三角 */
+.bubble::before {
+  content: '';
+  position: absolute;
+  left: -8px; top: 22px;
+  border: 8px solid transparent;
+  border-right-color: var(--ink);
+  border-left: 0;
+}
+
+/* —— 进度条 —— */
+.progress { height: 7px; background: var(--paper-2); border:2px solid var(--ink); border-radius:999px; overflow:hidden; margin-bottom: 26px; }
+.progress > i { display:block; height:100%; background: var(--coral); width:0; transition: width .35s ease; }
+
+/* —— 加载页（仪式感 + 未来广告位）—— */
+.loading { text-align:center; padding-top: 22vh; }
+.loading .spinner {
+  width: 64px; height: 64px; margin: 0 auto 26px;
+  border: 6px solid var(--paper-2);
+  border-top-color: var(--coral);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading .dna { font-family: var(--display); font-size: 22px; }
+.loading .hint { color: var(--ink-soft); font-size: 13px; margin-top: 10px; }
+
+/* —— 结果页 —— */
+/* 人格码勋章 */
+.result-hero {
+  text-align:center; margin-bottom: 20px;
+}
+.result-badge {
+  display: inline-block;
+  font-family: var(--display);
+  font-size: 28px; letter-spacing: 10px;
+  color: var(--paper);
+  background: var(--ink);
+  padding: 10px 18px;
+  border-radius: 14px;
+  margin-bottom: 12px;
+}
+.result-title {
+  font-family: var(--display);
+  font-size: clamp(28px, 10vw, 44px);
+  text-align:center;
+  margin: 0 0 4px;
+  line-height: 1.15;
+}
+.result-subtitle {
+  font-size: 14px; color: var(--ink-soft); text-align:center;
+}
+.result-quote {
+  background: var(--ink); color: var(--paper);
+  border-radius: 14px; padding: 18px 20px;
+  font-size: 15px; text-align:center; margin-bottom: 20px;
+  position: relative;
+}
+.result-quote::before { content: '"'; font-family: var(--display); font-size: 36px; color: var(--coral); position:absolute; left:14px; top:4px; opacity:.5; }
+.result-quote::after  { content: '"'; font-family: var(--display); font-size: 36px; color: var(--coral); position:absolute; right:14px; bottom:-8px; opacity:.5; }
+.rank-banner {
+  background: var(--gold); border: 2.5px solid var(--ink);
+  border-radius: 14px; padding: 16px 14px; text-align:center;
+  box-shadow: var(--shadow-hard); margin-bottom: 20px;
+}
+.rank-banner b { font-family: var(--display); font-size: 30px; color: var(--coral); }
+
+.numbers { display:flex; gap:10px; margin-bottom: 20px; }
+.num-box { flex:1; background:#FBF6EA; border:2.5px solid var(--line); border-radius:14px; padding:16px 12px; text-align:center; }
+.num-box .n { font-family: var(--display); font-size: 32px; color: var(--coral); }
+.num-box .l { font-size: 12px; color: var(--ink-soft); margin-top:2px; }
+
+/* 剖析 / 盲点 / 反转 —— 带彩色左边条的卡片 */
+.insight-card {
+  background: #FBF6EA;
+  border: 2.5px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.insight-card .section-h {
+  font-family: var(--display); font-size: 18px; margin: 0 0 6px;
+}
+.insight-card .section-h::before { content: ''; } /* 覆盖通用 ::before，用自身 emoji */
+.insight-card.blindspot { border-left: 6px solid var(--coral); }
+.insight-card.twist     { border-left: 6px solid var(--teal); }
+.insight-card.reading   { border-left: 6px solid var(--ink); }
+.reading-text { font-size: 15px; }
+
+/* 最佳搭档 */
+.match-card {
+  background: var(--paper-2); border: 2.5px solid var(--line);
+  border-radius: 14px; padding: 14px 18px; margin-bottom: 16px;
+  font-size: 14px; text-align:center;
+}
+.match-card b { font-family: var(--display); color: var(--coral); font-size: 17px; }
+
+.hook-box { border-left: 4px solid var(--teal); padding: 6px 0 6px 14px; margin: 20px 0; color: var(--ink-soft); font-size: 14px; }
+
+.radar-wrap { display:flex; justify-content:center; margin: 4px 0 8px; }
+
+.foot-actions { margin-top: 28px; display:flex; flex-direction:column; gap:12px; }
+.tiny { font-size:12px; color:var(--ink-soft); text-align:center; margin-top:14px; }
+
+/* —— 入场动画：错峰揭示 —— */
+.reveal { opacity:0; transform: translateY(14px); animation: rise .5s ease forwards; }
+@keyframes rise { to { opacity:1; transform:none; } }
+.d1{animation-delay:.05s}.d2{animation-delay:.15s}.d3{animation-delay:.25s}.d4{animation-delay:.35s}.d5{animation-delay:.45s}
