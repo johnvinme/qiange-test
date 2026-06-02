@@ -85,8 +85,13 @@
      ============================================================ */
   const FLOW = [
     ...CALC_QUESTIONS.map(q => ({ kind: 'calc', q })),
-    ...SCALE_QUESTIONS.map(q => ({ kind: 'scale', q })),
-    ...PERSONALITY_QUESTIONS.filter(q => q.type !== 'city').map(q => ({ kind: 'choice', q })),
+    // 穿插式：滑块 → 选择 → 滑块 → 选择，小人回嘴不断档
+    ...SCALE_QUESTIONS.slice(0, 2).map(q => ({ kind: 'scale', q })),
+    ...PERSONALITY_QUESTIONS.filter(q => q.type !== 'city').slice(0, 4).map(q => ({ kind: 'choice', q })),
+    ...SCALE_QUESTIONS.slice(2, 4).map(q => ({ kind: 'scale', q })),
+    ...PERSONALITY_QUESTIONS.filter(q => q.type !== 'city').slice(4, 7).map(q => ({ kind: 'choice', q })),
+    ...SCALE_QUESTIONS.slice(4).map(q => ({ kind: 'scale', q })),
+    ...PERSONALITY_QUESTIONS.filter(q => q.type !== 'city').slice(7).map(q => ({ kind: 'choice', q })),
     ...PERSONALITY_QUESTIONS.filter(q => q.type === 'city').map(q => ({ kind: 'choice', q, isCity: true })),
   ];
   const TOTAL = FLOW.length;
@@ -228,7 +233,13 @@
     document.getElementById('back').onclick = () => { SFX.play('tap'); state.idx = i - 1; go(); };
   }
 
-  /* —— 选择题（ABCD + 可回退 + 记已选）—— */
+  /* —— 选择题（ABCD + 小人回嘴 + 手动下一题）—— */
+  const ROAST = {
+    'E':'早起的鸟儿有虫吃，但你五点就起了……', 'L':'不着急，退休是别人的事，你先忙着',
+    'R':'每省一块钱，就有一只余额在偷偷感谢你', 'C':'花！花钱的快乐，存钱的人这辈子不懂',
+    'M':'有底的人说话就是硬气，余额给的底气', 'B':'白手起家，未来可期——指遥远的未来',
+    'H':'胃口不小，梦想很大，钱包：我压力好大', 'S':'知足常乐，佛系选手，欲望低到尘埃里',
+  };
   function renderChoice(item, i) {
     const q = item.q;
     const saved = state.answers[q.id];
@@ -236,6 +247,7 @@
     screen(`
       ${progressBar(i)}
       <div class="rise d2"><div class="q-index">${item.isCity ? '最后一题' : `第 ${i + 1} 题 / ${TOTAL}`}</div><div class="q-scene">${q.scene}</div></div>
+      <div class="talker rise d3" id="talker" style="opacity:0;transition:opacity .2s;"><div class="face" id="face">${faceSVG('wink')}</div><div class="bubble" id="roastBubble"></div></div>
       <div class="rise d3" id="opts"></div>
       <div class="navbar rise d4">
         <button class="btn ghost back" id="back">上一题</button>
@@ -243,6 +255,19 @@
       </div>
     `);
     const opts = document.getElementById('opts');
+    const talker = document.getElementById('talker');
+    const face = document.getElementById('face');
+    const bubble = document.getElementById('roastBubble');
+    // 回退时恢复已选状态 + 回嘴
+    if (saved) {
+      setTimeout(() => {
+        const feed = saved.feed || '';
+        const dim = feed.replace('egg:','').charAt(0).toUpperCase();
+        bubble.textContent = ROAST[dim] || '好的，记住你的选择了 👀';
+        face.innerHTML = faceSVG(['smug','wink','chill'][Math.floor(Math.random()*3)]);
+        talker.style.opacity = '1';
+      }, 100);
+    }
     q.options.forEach((opt, k) => {
       const b = document.createElement('button');
       b.className = 'option' + (saved && saved.k === k ? ' chosen' : '');
@@ -253,8 +278,12 @@
         b.classList.add('chosen');
         document.getElementById('next').disabled = false;
         SFX.play('select');
-        // 选完自动跳，停顿让用户看到选中反馈
-        setTimeout(() => { SFX.play('tap'); state.idx = i + 1; go(); }, 320);
+        // 小人回嘴
+        const feed = opt.feed || '';
+        const dim = feed.replace('egg:','').charAt(0).toUpperCase();
+        bubble.textContent = ROAST[dim] || '好的，记住你的选择了 👀';
+        face.innerHTML = faceSVG(['smug','wink','chill','sour'][Math.floor(Math.random()*4)]);
+        talker.style.opacity = '1';
       };
       opts.appendChild(b);
     });
