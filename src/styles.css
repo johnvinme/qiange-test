@@ -34,9 +34,11 @@ body{
 /* —— 顶部栏：logo + 音量开关 —— */
 .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
 .brand{ font-family:var(--display); font-size:22px; letter-spacing:1px; display:flex; align-items:baseline; gap:6px; }
-.brand .logo-mark{ color:var(--coral); font-weight:900; font-size:30px; display:inline-flex; align-items:baseline; -webkit-text-stroke:.9px var(--coral); letter-spacing:1.5px; }
+.brand .logo-mark{ color:var(--coral); font-weight:900; font-size:30px; display:inline-flex; align-items:baseline; -webkit-text-stroke:.9px var(--coral); letter-spacing:1.5px; animation:logoBeat 1.04s ease-in-out infinite; }
 .brand .logo-mark .dollar{ transform:skewX(-8deg); display:inline-block; }
 .brand .logo-name{ color:var(--ink); -webkit-text-stroke:.4px var(--ink); }
+.brand .byline{ font-size:10px; color:var(--paper); background:var(--ink); padding:1px 6px; border-radius:6px; letter-spacing:0; margin-left:-2px; opacity:.7; }
+@keyframes logoBeat{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
 .sound-toggle{
   flex:0 0 auto; width:42px; height:42px; border:2.5px solid var(--ink); border-radius:12px;
   background:var(--paper-card); font-size:19px; cursor:pointer; box-shadow:var(--shadow-soft);
@@ -96,7 +98,7 @@ h1.hero em{ color:var(--coral); font-style:normal; -webkit-text-stroke:1.2px var
 .face.pop .face-svg{ animation:pop .3s var(--ease-back), bob 2.2s ease-in-out infinite .3s; }
 @keyframes pop{ 0%{transform:scale(.7) rotate(-8deg)} 60%{transform:scale(1.14) rotate(5deg)} 100%{transform:scale(1)} }
 .bubble{ position:relative; flex:1; background:var(--ink); color:var(--paper); font-size:14.5px; font-weight:600; line-height:1.4; padding:12px 14px; border-radius:14px; min-height:24px; transition:opacity .15s; }
-.bubble::before{ content:''; position:absolute; left:-8px; top:22px; border:8px solid transparent; border-right-color:var(--ink); border-left:0; }
+.bubble::before{ content:''; position:absolute; left:-8px; top:50%; margin-top:-8px; border:8px solid transparent; border-right-color:var(--ink); border-left:0; }
 .bubble.swap{ animation:bubbleSwap .25s var(--ease); }
 @keyframes bubbleSwap{ from{opacity:.3; transform:translateX(-4px);} to{opacity:1; transform:none;} }
 
