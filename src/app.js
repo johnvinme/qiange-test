@@ -253,6 +253,8 @@
         b.classList.add('chosen');
         document.getElementById('next').disabled = false;
         SFX.play('select');
+        // 选完自动跳，停顿让用户看到选中反馈
+        setTimeout(() => { SFX.play('tap'); state.idx = i + 1; go(); }, 320);
       };
       opts.appendChild(b);
     });
