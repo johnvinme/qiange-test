@@ -97,8 +97,8 @@ h1.hero em{ color:var(--coral); font-style:normal; -webkit-text-stroke:1.2px var
 @keyframes bob{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
 .face.pop .face-svg{ animation:pop .3s var(--ease-back), bob 2.2s ease-in-out infinite .3s; }
 @keyframes pop{ 0%{transform:scale(.7) rotate(-8deg)} 60%{transform:scale(1.14) rotate(5deg)} 100%{transform:scale(1)} }
-.bubble{ position:relative; flex:1; background:var(--ink); color:var(--paper); font-size:14.5px; font-weight:600; line-height:1.4; padding:12px 14px; border-radius:14px; min-height:24px; transition:opacity .15s; }
-.bubble::before{ content:''; position:absolute; left:-8px; top:50%; margin-top:-8px; border:8px solid transparent; border-right-color:var(--ink); border-left:0; }
+.bubble{ position:relative; flex:1; background:var(--paper-card); color:var(--ink); font-size:14.5px; font-weight:600; line-height:1.4; padding:12px 14px; border-radius:14px; min-height:24px; transition:opacity .15s; border:2px solid var(--ink); }
+.bubble::before{ content:''; position:absolute; left:-10px; top:50%; margin-top:-8px; border:8px solid transparent; border-right-color:var(--ink); border-left:0; }
 .bubble.swap{ animation:bubbleSwap .25s var(--ease); }
 @keyframes bubbleSwap{ from{opacity:.3; transform:translateX(-4px);} to{opacity:1; transform:none;} }
 
@@ -128,65 +128,83 @@ input[type=range]::-moz-range-thumb{ width:32px; height:32px; border-radius:50%;
 .loading .dna{ font-family:var(--display); font-size:22px; min-height:30px; }
 .loading .hint{ color:var(--ink-soft); font-size:var(--fs-cap); margin-top:10px; }
 
-/* —— 结果页 —— */
-.result-badge{ display:inline-block; font-family:var(--display); font-size:26px; letter-spacing:10px; color:var(--paper); background:var(--ink); padding:9px 8px 9px 18px; border-radius:14px; }
-.result-hero{ text-align:center; margin-bottom:16px; }
-.result-title{ font-family:var(--display); font-size:var(--fs-title); text-align:center; margin:12px 0 2px; line-height:1.15; -webkit-text-stroke:1px var(--ink); }
-.result-subtitle{ font-size:var(--fs-cap); color:var(--ink-soft); text-align:center; }
-.result-quote{ background:var(--ink); color:var(--paper); border-radius:14px; padding:18px 22px; font-size:var(--fs-body); text-align:center; margin-bottom:18px; position:relative; }
-.result-quote::before{ content:'"'; font-family:var(--display); font-size:40px; color:var(--coral); position:absolute; left:12px; top:0; opacity:.5; }
+/* ============================================================
+   结果页 v3 —— 有高低起伏的过关结算
+   ============================================================ */
+/* 1. 高光区：白底卡片 + 金章 + 大字 + 珊瑚红药丸 */
+.hero-rank{ position:relative; background:var(--paper-card); border:3px solid var(--ink); border-radius:20px; padding:20px 20px 24px; text-align:center; box-shadow:var(--shadow-hard); margin-bottom:18px; overflow:hidden; }
+.hero-rank::before{ content:'★ ★ ★'; position:absolute; top:9px; left:0; right:0; text-align:center; color:rgba(232,163,61,.5); font-size:13px; letter-spacing:6px; }
+.code-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:96px; height:60px; padding:0 16px; border-radius:16px; background:var(--gold); border:3px solid var(--ink); box-shadow:3px 3px 0 0 var(--ink); margin:18px auto 12px; font-family:var(--display); font-size:30px; letter-spacing:5px; color:var(--ink); -webkit-text-stroke:.8px var(--ink); }
+.hero-code{ font-family:var(--display); font-size:17px; letter-spacing:7px; color:var(--coral); margin-bottom:6px; -webkit-text-stroke:.4px var(--coral); }
+.hero-title{ font-family:var(--display); font-size:46px; color:var(--ink); line-height:1.05; -webkit-text-stroke:1.4px var(--ink); margin-bottom:4px; text-wrap:balance; }
+.hero-sub{ display:inline-block; color:var(--paper); background:var(--coral); font-size:13px; padding:2px 12px; border-radius:999px; margin-top:4px; }
 
-.rank-banner{ background:var(--gold); border:2.5px solid var(--ink); border-radius:14px; padding:15px 14px; text-align:center; box-shadow:var(--shadow-hard); margin-bottom:18px; }
-.rank-banner b{ font-family:var(--display); font-size:30px; color:var(--coral); -webkit-text-stroke:.8px var(--coral); }
+/* 2. 金句：珊瑚红底白字 */
+.quote{ background:var(--coral); color:#fff; border:2.5px solid var(--ink); border-radius:14px; padding:16px 20px; font-size:15px; text-align:center; margin-bottom:18px; box-shadow:var(--shadow-hard); position:relative; text-wrap:balance; }
+.quote::before{ content:'"'; font-family:var(--display); font-size:44px; position:absolute; left:10px; top:-6px; opacity:.35; }
 
-/* —— 收益率对比卡 —— */
-.compare{ border:2.5px solid var(--ink); border-radius:var(--radius); overflow:hidden; margin-bottom:18px; box-shadow:var(--shadow-hard); }
+/* 3. 排名条 */
+.rank{ background:var(--gold); border:2.5px solid var(--ink); border-radius:14px; padding:13px; text-align:center; box-shadow:var(--shadow-hard); margin-bottom:18px; font-size:14px; }
+.rank b{ font-family:var(--display); font-size:28px; color:var(--coral); -webkit-text-stroke:.7px var(--coral); }
+
+/* 4. 收益率对比 + 落差点破 */
+.compare{ border:2.5px solid var(--ink); border-radius:18px; overflow:hidden; margin-bottom:8px; box-shadow:var(--shadow-hard); }
 .compare-tabs{ display:flex; }
-.compare-tab{ flex:1; font-family:var(--display); font-size:15px; padding:12px 6px; text-align:center; cursor:pointer; background:var(--paper-2); color:var(--ink-soft); border:none; border-bottom:2.5px solid var(--ink); transition:background .2s,color .2s; }
+.compare-tab{ flex:1; font-family:var(--display); font-size:14px; padding:11px; text-align:center; background:var(--paper-2); color:var(--ink-soft); border:none; border-bottom:2.5px solid var(--ink); cursor:pointer; }
 .compare-tab.active{ background:var(--ink); color:var(--paper); }
-.compare-body{ background:var(--paper-card); padding:20px 18px; text-align:center; }
-.compare-body .big{ font-family:var(--display); font-size:46px; color:var(--coral); line-height:1.1; transition:opacity .2s; -webkit-text-stroke:1px var(--coral); }
-.compare-body .big .u{ font-size:20px; color:var(--ink-soft); }
-.compare-body .cap{ font-size:var(--fs-cap); color:var(--ink-soft); margin-top:6px; }
+.compare-body{ background:var(--paper-card); padding:18px; text-align:center; }
+.compare-body .big{ font-family:var(--display); font-size:50px; color:var(--coral); line-height:1.1; -webkit-text-stroke:1px var(--coral); }
+.compare-body .big .u{ font-size:18px; color:var(--ink-soft); }
+.compare-body .cap{ font-size:12px; color:var(--ink-soft); margin-top:6px; }
 .compare-body.flip .big{ animation:numFlip .35s var(--ease); }
 @keyframes numFlip{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
-.compare-note{ font-size:var(--fs-tiny); color:var(--ink-soft); text-align:center; margin:-8px 0 18px; }
+.gap-hint{ text-align:center; font-size:13px; color:var(--coral); font-family:var(--display); margin:10px 0 4px; }
+.compare-note{ font-size:11px; color:var(--ink-soft); text-align:center; margin-bottom:18px; }
 
-.numbers{ display:flex; gap:10px; margin-bottom:18px; }
-.num-box{ flex:1; background:var(--paper-card); border:2.5px solid var(--line); border-radius:14px; padding:15px 12px; text-align:center; }
-.num-box .n{ font-family:var(--display); font-size:30px; color:var(--coral); }
-.num-box .l{ font-size:var(--fs-tiny); color:var(--ink-soft); margin-top:2px; }
+/* 5. 四条属性能量条（替代雷达图） */
+.bars{ background:var(--paper-card); border:2.5px solid var(--ink); border-radius:14px; padding:16px 18px; margin-bottom:18px; box-shadow:var(--shadow-hard); display:flex; flex-direction:column; gap:13px; }
+.bar-row{ display:flex; align-items:center; gap:10px; }
+.bar-row .bk{ flex:0 0 36px; font-family:var(--display); font-size:15px; color:var(--ink); }
+.bar-row .track{ flex:1; height:14px; background:var(--paper-2); border:2px solid var(--ink); border-radius:999px; overflow:hidden; }
+.bar-row .track i{ display:block; height:100%; background:repeating-linear-gradient(45deg,var(--coral) 0 6px,#ff6a4d 6px 12px); box-shadow:0 0 6px rgba(255,77,46,.5); }
+.bar-row .bv{ flex:0 0 52px; text-align:right; font-size:12px; color:var(--ink-soft); }
 
-.radar-wrap{ display:flex; justify-content:center; margin:6px 0; }
+/* 6. 剖析三连 */
+.insight{ background:var(--paper-card); border:2.5px solid var(--ink); border-radius:14px; padding:15px 18px; margin-bottom:13px; }
+.insight .h{ font-family:var(--display); font-size:17px; margin-bottom:5px; display:flex; align-items:center; gap:7px; }
+.insight.reading{ border-left:6px solid var(--ink); }
+.insight.blind{ border-left:6px solid var(--coral); }
+.insight.twist{ border-left:6px solid var(--teal); }
+.insight p{ font-size:14px; text-wrap:pretty; }
 
-.insight-card{ background:var(--paper-card); border:2.5px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:14px; }
-.insight-card .section-h{ font-family:var(--display); font-size:18px; margin-bottom:6px; }
-.insight-card.blindspot{ border-left:6px solid var(--coral); }
-.insight-card.twist{ border-left:6px solid var(--teal); }
-.insight-card.reading{ border-left:6px solid var(--ink); }
-.reading-text{ font-size:var(--fs-body); }
+/* 7. 最佳搭档 */
+.match{ background:var(--paper-2); border:2.5px solid var(--ink); border-radius:14px; padding:14px 18px; text-align:center; margin-bottom:18px; }
+.match-h{ font-family:var(--display); font-size:14px; color:var(--ink-soft); margin-bottom:6px; }
+.match-name{ font-family:var(--display); font-size:24px; color:var(--coral); -webkit-text-stroke:.5px var(--coral); margin-bottom:6px; }
+.match-name .match-code{ font-size:13px; color:var(--ink-soft); letter-spacing:3px; -webkit-text-stroke:0; margin-left:4px; vertical-align:middle; }
+.match p{ font-size:13.5px; }
 
-.match-card{ background:var(--paper-2); border:2.5px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:14px; font-size:14px; text-align:center; }
-.match-card b{ font-family:var(--display); color:var(--coral); font-size:17px; }
-.hook-box{ border-left:4px solid var(--teal); padding:6px 0 6px 14px; margin:18px 0; color:var(--ink-soft); font-size:14px; }
+/* 8. 行动区 */
+.hook{ border-left:4px solid var(--teal); padding:8px 0 8px 14px; color:var(--ink-soft); font-size:13.5px; margin-bottom:18px; }
+.act{ display:flex; flex-direction:column; gap:11px; }
 .foot-actions{ margin-top:24px; display:flex; flex-direction:column; gap:12px; }
-.tiny{ font-size:var(--fs-tiny); color:var(--ink-soft); text-align:center; margin-top:14px; }
+.tiny{ font-size:11px; color:var(--ink-soft); text-align:center; margin-top:14px; }
 
-/* —— 弹幕层 —— */
+/* —— 弹幕层（轻量、退成背景氛围）—— */
 #danmaku-layer{
   position:fixed; inset:0; z-index:100; pointer-events:none; overflow:hidden;
 }
 .danmaku{
-  position:absolute; white-space:nowrap; font-size:14px; font-weight:700;
-  padding:6px 16px; border-radius:999px;
-  background:rgba(33,28,22,.78); color:var(--paper);
-  border:2px solid var(--ink);
+  position:absolute; white-space:nowrap; font-size:12px; font-weight:600;
+  padding:5px 12px; border-radius:999px;
+  background:rgba(33,28,22,.4); color:var(--paper);
   animation:dmFly linear forwards;
   opacity:0;
-  letter-spacing:.5px;
+  letter-spacing:.4px;
+  backdrop-filter:blur(1px);
 }
-.danmaku.accent{ background:rgba(255,77,46,.78); color:#fff; border-color:var(--coral); }
-.danmaku.gold{ background:rgba(232,163,61,.78); color:var(--ink); border-color:var(--gold); }
+.danmaku.accent{ background:rgba(255,77,46,.38); color:#fff; }
+.danmaku.gold{ background:rgba(232,163,61,.38); color:var(--ink); }
 @keyframes dmFly{
   0%{ transform:translateX(100vw); opacity:0; }
   5%{ opacity:1; }

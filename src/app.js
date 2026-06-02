@@ -16,6 +16,11 @@
   };
   CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default);
 
+  // 弹幕层常驻 body，切题不销毁
+  const danmakuLayer = document.createElement('div');
+  danmakuLayer.id = 'danmaku-layer';
+  document.body.appendChild(danmakuLayer);
+
   /* ============================================================
      ♪ Chiptune 音效引擎 —— Web Audio 纯合成，零文件
      ============================================================ */
@@ -105,7 +110,7 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div id="danmaku-layer"></div><div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);
@@ -360,23 +365,40 @@
   const TYPE_EMOJI = { ERMH: '🔨', ERMS: '😴', ERBH: '💪', ERBS: '🧘', ECMH: '🔥', ECMS: '💸', ECBH: '🎰', ECBS: '👑', LRMH: '🏃', LRMS: '🎣', LRBH: '🐹', LRBS: '🌵', LCMH: '🎫', LCMS: '🛍️', LCBH: '📝', LCBS: '🍜' };
   function fallbackPersona(code) { return { title: code + ' 型', subtitle: '文案待填', quote: '（金句待填）', reading: '解读待填。', blindspot: '盲点待填。', twist: '反转待填。', match: { code: '----', line: '最佳搭档待填' }, hook: '想躺得更安心一点？哪天有空，来鑫芽随便逛逛就好。' }; }
 
-  /* —— 结果页（含收益率 2/10 对比）—— */
+  // 维度 → 人话/能量条标签
+  const DIM_LABEL = {
+    E:'起步早', L:'起步晚', R:'能存', C:'月光', M:'有底', B:'白手', H:'物欲高', S:'物欲低'
+  };
+  const BAR_WORD = {
+    E:'早鸟', L:'临门一脚', R:'铁公鸡', C:'月光', M:'有矿', B:'白手', H:'很想要', S:'佛系'
+  };
+
+  /* —— 结果页 v3（有高低起伏的过关结算）—— */
   function renderResult() {
     const r = state.result; const code = r.dimensions.code;
+    const dims = r.dimensions.dims; // {start, save, principal, desire}
     const p = PERSONALITIES[code] || fallbackPersona(code);
-    const emoji = TYPE_EMOJI[code] || '💡';
+    const partner = PERSONALITIES[p.match.code] || fallbackPersona(p.match.code);
     const cityFeed = state.answers['city'] && state.answers['city'].feed;
     const cityName = cityFeed ? cityFeed.replace('city:', '') : '你的城市';
     const ageTxt = (a) => isFinite(a) ? Math.round(a) + '<span class="u">岁</span>' : '再想想';
-    const need = (x) => isFinite(x) ? x.toLocaleString('zh-CN') : '随缘';
+
+    // 人话维度行 + 能量条
+    const dimRow = ['start','save','principal','desire'].map(k => DIM_LABEL[dims[k]]).join(' · ');
+    const diffYears = (isFinite(r.r2) && isFinite(r.r10)) ? Math.abs(Math.round(r.r2 - r.r10)) : null;
+    const gapMsg = diffYears ? `↑ 只存银行要 ${Math.round(r.r2)} 岁，差了整整 ${diffYears} 年` : '';
 
     screen(`
-      <div class="result-hero rise d1"><div class="result-badge">${code.split('').join(' ')}</div></div>
-      <h2 class="result-title rise d1">${emoji}&nbsp;${p.title}</h2>
-      <div class="result-subtitle rise d1">${p.subtitle}</div>
-      <div class="result-quote rise d2">${p.quote}</div>
+      <div class="hero-rank rise d1">
+        <div class="code-badge">${code.split('').join('')}</div>
+        <div class="hero-code">${dimRow}</div>
+        <div class="hero-title">${p.title}</div>
+        ${p.subtitle ? `<div class="hero-sub">${p.subtitle}</div>` : ''}
+      </div>
 
-      <div class="rank-banner rise d2">在<b>${cityName}</b>，你的退休速度打败了 <b id="rankPct">0%</b> 的人 🏙️</div>
+      <div class="quote rise d2">${p.quote}</div>
+
+      <div class="rank rise d2">在<b>${cityName}</b>，你的退休速度打败了 <b id="rankPct">0%</b> 的人 🏙️</div>
 
       <div class="compare rise d3">
         <div class="compare-tabs">
@@ -388,24 +410,30 @@
           <div class="cap" id="cmpCap">按只存银行（假设年化2%），照这个存法大约能躺平的年纪</div>
         </div>
       </div>
+      ${gapMsg ? `<div class="gap-hint rise d3">${gapMsg}</div>` : ''}
       <p class="compare-note rise d3">假设年化收益率，非任何投资建议或收益承诺。</p>
 
-      <div class="numbers rise d3">
-        <div class="num-box"><div class="n">${need(r.need10)}</div><div class="l">合理理财下<br>每月该存(元)</div></div>
-        <div class="num-box"><div class="n">${need(r.need2)}</div><div class="l">只存银行下<br>每月该存(元)</div></div>
+      <div class="bars rise d4">
+        <div class="bar-row"><span class="bk">起步</span><span class="track"><i style="width:${(r.dimensions.scores.start*100).toFixed(0)}%"></i></span><span class="bv">${BAR_WORD[dims.start]}</span></div>
+        <div class="bar-row"><span class="bk">储蓄</span><span class="track"><i style="width:${(r.dimensions.scores.save*100).toFixed(0)}%"></i></span><span class="bv">${BAR_WORD[dims.save]}</span></div>
+        <div class="bar-row"><span class="bk">本金</span><span class="track"><i style="width:${(r.dimensions.scores.principal*100).toFixed(0)}%"></i></span><span class="bv">${BAR_WORD[dims.principal]}</span></div>
+        <div class="bar-row"><span class="bk">物欲</span><span class="track"><i style="width:${(r.dimensions.scores.desire*100).toFixed(0)}%"></i></span><span class="bv">${BAR_WORD[dims.desire]}</span></div>
       </div>
 
-      <div class="radar-wrap rise d4">${radarSVG(r.dimensions.scores)}</div>
+      <div class="insight reading rise d4"><div class="h">🔍 人格剖析</div><p>${p.reading}</p></div>
+      <div class="insight blind rise d5"><div class="h">⚡ 你的盲点</div><p>${p.blindspot}</p></div>
+      <div class="insight twist rise d5"><div class="h">🌤 但是吧……</div><p>${p.twist}</p></div>
 
-      <div class="insight-card reading rise d4"><div class="section-h">📖 人格剖析</div><div class="reading-text">${p.reading}</div></div>
-      <div class="insight-card blindspot rise d5"><div class="section-h">🎯 你的盲点</div><div class="reading-text">${p.blindspot}</div></div>
-      <div class="insight-card twist rise d5"><div class="section-h">🫂 但是吧……</div><div class="reading-text">${p.twist}</div></div>
-      <div class="match-card rise d5"><b>${p.match.code}</b>&nbsp;·&nbsp;${p.match.line}</div>
-      <div class="hook-box rise d6">${p.hook}</div>
+      <div class="match rise d5">
+        <div class="match-h">🤝 你的最佳财格搭档</div>
+        <div class="match-name">${partner.title} <span class="match-code">${p.match.code}</span></div>
+        <p>${p.match.line}</p>
+      </div>
 
-      <div class="foot-actions rise d6" id="footActions"></div>
+      <div class="hook rise d6">${p.hook}</div>
+      <div class="act rise d6" id="footActions"></div>
       <p class="tiny">数字基于复利模型和你的关键数据测算，仅供娱乐参考。</p>
-      <canvas id="cardCanvas" width="900" height="1400" style="display:none"></canvas>
+      <canvas id="cardCanvas" width="900" height="1260" style="display:none"></canvas>
     `);
 
     // 收益率切换
@@ -433,7 +461,7 @@
       fa.innerHTML = `<button class="btn coral" id="goTest">测测我是哪种 →</button>`;
       document.getElementById('goTest').onclick = () => { location.href = location.pathname; };
     } else {
-      fa.innerHTML = `<button class="btn coral" id="save">保存我的结果图，去晒</button>
+      fa.innerHTML = `<button class="btn coral" id="save">保存我的结果图，去晒 📸</button>
         <button class="btn" id="shareBtn">复制分享链接</button>
         <button class="btn ghost" id="restart">重测一次</button>`;
       document.getElementById('restart').onclick = () => { SFX.play('tap'); state.stage = 'intro'; state.idx = 0; state.answers = {}; CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default); go(); };
@@ -448,6 +476,7 @@
   /* ============================================================
      分享图 v2 —— 称号放大到想截图
      ============================================================ */
+  /* —— 分享图 v3 · 方向B 精致收藏卡（900×1260）—— */
   async function buildShareCard(res, p) {
     try {
       const c = document.getElementById('cardCanvas');
@@ -456,74 +485,106 @@
       if (document.fonts && document.fonts.ready) {
         try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]); } catch (_) { }
       }
-      // 底
-      ctx.fillStyle = '#F2E9D8'; ctx.fillRect(0, 0, W, H);
-      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 12; ctx.strokeRect(40, 40, W - 80, H - 80);
-      ctx.fillStyle = '#211C16'; ctx.textAlign = 'center';
       const F = (size, weight = '700') => `${weight} ${size}px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif`;
-
-      // 顶部 logo
-      ctx.font = '900 28px "Smiley Sans","PingFang SC","Microsoft YaHei",sans-serif';
-      ctx.fillStyle = '#FF4D2E'; ctx.fillText('$BTI  钱格测试', W / 2, 110);
-
-      // 人格码 —— 大黑块白字勋章
-      const codeLetters = res.dimensions.code.split('').join('  ');
-      ctx.fillStyle = '#211C16'; roundRect(ctx, W / 2 - 200, 150, 400, 90, 20); ctx.fill();
-      ctx.font = '900 52px "Smiley Sans","PingFang SC","Microsoft YaHei",sans-serif';
-      ctx.fillStyle = '#F2E9D8'; ctx.fillText(codeLetters, W / 2, 215);
-
-      // 称号 —— 超大，主视觉
-      ctx.font = F(80, '900'); ctx.fillStyle = '#211C16';
-      wrapText(ctx, p.title, W / 2, 320, W - 160, 90);
-      // 副标题
-      if (p.subtitle) {
-        ctx.font = F(32, '400'); ctx.fillStyle = '#5A5247';
-        ctx.fillText(p.subtitle, W / 2, p.title.length > 6 ? 420 : 390);
-      }
-
-      // 排名 —— 金底大卡
-      const rankY = p.title.length > 6 ? 480 : 450;
-      ctx.fillStyle = '#E8A33D'; roundRect(ctx, 80, rankY, W - 160, 130, 24); ctx.fill();
-      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 6; roundRect(ctx, 80, rankY, W - 160, 130, 24); ctx.stroke();
       const cityFeed2 = state.answers['city'] && state.answers['city'].feed;
       const cityName2 = cityFeed2 ? cityFeed2.replace('city:', '') : '你的城市';
-      ctx.fillStyle = '#211C16'; ctx.font = F(28, '700');
-      ctx.fillText(`在${cityName2}，你的退休速度打败了`, W / 2, rankY + 42);
-      ctx.fillStyle = '#FF4D2E'; ctx.font = F(60, '900');
-      ctx.fillText(`${res.cityPercentile}% 的人`, W / 2, rankY + 100);
+      const codeLetters = res.dimensions.code.split('').join(' ');
+      const r10age = isFinite(res.r10) ? Math.round(res.r10) + '岁' : '∞';
+      const r2age = isFinite(res.r2) ? Math.round(res.r2) + '岁' : '∞';
 
-      // 退休年龄
-      const age = isFinite(res.retirement.achievableRetireAge) ? Math.round(res.retirement.achievableRetireAge) + ' 岁' : '再想想';
-      const numY = rankY + 180;
-      ctx.fillStyle = '#211C16'; ctx.font = F(24, '700');
-      ctx.fillText('照这个存法，大约能躺平的年纪', W / 2, numY);
-      ctx.fillStyle = '#FF4D2E'; ctx.font = F(90, '900');
-      ctx.fillText(age, W / 2, numY + 90);
+      // 底：暖纸
+      ctx.fillStyle = '#F2E9D8'; ctx.fillRect(0, 0, W, H);
+      // 圆点纹理
+      ctx.fillStyle = 'rgba(234,223,201,.5)';
+      for (let px = 0; px < W; px += 18) { for (let py = 0; py < H; py += 18) { ctx.beginPath(); ctx.arc(px, py, .8, 0, Math.PI * 2); ctx.fill(); } }
 
-      // 金句
-      ctx.fillStyle = '#211C16'; ctx.font = F(24, '400');
-      const qY = numY + 170;
-      ctx.fillStyle = '#FBF6EA'; roundRect(ctx, 80, qY - 30, W - 160, 100, 16); ctx.fill();
-      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 3; roundRect(ctx, 80, qY - 30, W - 160, 100, 16); ctx.stroke();
-      ctx.fillStyle = '#211C16'; wrapText(ctx, `"${p.quote}"`, W / 2, qY + 10, W - 200, 36);
+      // 卡牌框：3px墨黑边 + 硬投影 + 圆角
+      const M = 36; // margin
+      ctx.fillStyle = '#FBF6EA';
+      roundRect(ctx, M, M, W - M * 2, H - M * 2, 14); ctx.fill();
+      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 3;
+      roundRect(ctx, M + 2, M + 2, W - M * 2 - 4, H - M * 2 - 4, 14); ctx.stroke();
+      // 硬投影
+      ctx.fillStyle = '#211C16';
+      roundRect(ctx, M + 5, M + 5, W - M * 2, H - M * 2, 14); ctx.fill();
+      ctx.fillStyle = '#FBF6EA';
+      roundRect(ctx, M, M, W - M * 2, H - M * 2, 14); ctx.fill();
+      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 3;
+      roundRect(ctx, M, M, W - M * 2, H - M * 2, 14); ctx.stroke();
 
-      // QR 码
+      ctx.textAlign = 'center';
+      let y = M + 10;
+
+      // 卡头：墨黑底横条
+      ctx.fillStyle = '#211C16';
+      roundRect(ctx, M + 4, y, W - M * 2 - 8, 54, 10); ctx.fill();
+      ctx.font = F(15, '700'); ctx.fillStyle = '#E8A33D';
+      ctx.textAlign = 'left';
+      ctx.fillText(codeLetters, M + 22, y + 35);
+      // 稀有度标
+      ctx.textAlign = 'right';
+      ctx.font = F(12, '700'); ctx.fillStyle = '#FF4D2E';
+      ctx.strokeStyle = '#FF4D2E'; ctx.lineWidth = 1.5;
+      roundRect(ctx, W - M - 140, y + 10, 116, 34, 6); ctx.stroke();
+      ctx.fillText(`击败${cityName2} ${res.cityPercentile}%`, W - M - 30, y + 32);
+      ctx.textAlign = 'center';
+      y += 74;
+
+      // 称号区：珊瑚红底
+      ctx.fillStyle = '#FF4D2E';
+      roundRect(ctx, M + 4, y, W - M * 2 - 8, 96, 12); ctx.fill();
+      ctx.font = F(46, '900'); ctx.fillStyle = '#fff';
+      smartWrap(ctx, p.title, W / 2, y + 55, W - 140, 52);
+      // 副标题
+      if (p.subtitle) {
+        ctx.font = F(16, '400'); ctx.fillStyle = 'rgba(255,255,255,.85)';
+        ctx.fillText(p.subtitle, W / 2, y + 82);
+      }
+      y += 116;
+
+      // 数据行 ×2
+      ctx.fillStyle = '#FBF6EA'; ctx.strokeStyle = '#211C16'; ctx.lineWidth = 2;
+      roundRect(ctx, M + 10, y, W - M * 2 - 20, 52, 10); ctx.fill(); ctx.stroke();
+      ctx.textAlign = 'left'; ctx.font = F(14, '400'); ctx.fillStyle = '#5A5247';
+      ctx.fillText('合理理财 · 能躺平年纪', M + 28, y + 32);
+      ctx.textAlign = 'right'; ctx.font = F(30, '900'); ctx.fillStyle = '#FF4D2E';
+      ctx.fillText(r10age, W - M - 28, y + 32);
+      y += 66;
+
+      ctx.textAlign = 'left'; ctx.fillStyle = '#FBF6EA'; ctx.strokeStyle = '#211C16';
+      roundRect(ctx, M + 10, y, W - M * 2 - 20, 52, 10); ctx.fill(); ctx.stroke();
+      ctx.font = F(14, '400'); ctx.fillStyle = '#5A5247';
+      ctx.fillText('只存银行 · 要熬到', M + 28, y + 32);
+      ctx.textAlign = 'right'; ctx.font = F(30, '900'); ctx.fillStyle = '#211C16';
+      ctx.fillText(r2age, W - M - 28, y + 32);
+      ctx.textAlign = 'center';
+      y += 80;
+
+      // 金句卡
+      ctx.fillStyle = '#211C16';
+      roundRect(ctx, M + 10, y, W - M * 2 - 20, 62, 10); ctx.fill();
+      ctx.font = F(13, '400'); ctx.fillStyle = '#F2E9D8';
+      smartWrap(ctx, '"' + p.quote + '"', W / 2, y + 32, W - 140, 22);
+      y += 80;
+
+      // 卡脚：左QR + 右文字
       const shareURL = location.origin + location.pathname + '?r=' + encodeResult(res);
-      const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(shareURL);
+      const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(shareURL);
       try {
         const qrImg = await new Promise((resolve, reject) => {
           const img = new Image(); img.crossOrigin = 'anonymous';
           img.onload = () => resolve(img); img.onerror = () => reject(new Error('QR load fail'));
           img.src = qrURL;
         });
-        ctx.drawImage(qrImg, W / 2 - 75, H - 230, 150, 150);
-        ctx.fillStyle = '#5A5247'; ctx.font = F(18, '400');
-        ctx.fillText('长按扫码，测测你是哪种快乐的穷鬼', W / 2, H - 60);
-      } catch (_) {
-        ctx.fillStyle = '#5A5247'; ctx.font = F(18, '400');
-        ctx.fillText('长按扫码，测测你是哪种快乐的穷鬼', W / 2, H - 90);
-        ctx.fillText(shareURL, W / 2, H - 60);
-      }
+        ctx.drawImage(qrImg, M + 22, y, 120, 120);
+      } catch (_) { /* QR fail → skip */ }
+      ctx.textAlign = 'left';
+      ctx.font = F(13, '700'); ctx.fillStyle = '#FF4D2E';
+      ctx.fillText('钱格测试', M + 160, y + 40);
+      ctx.font = F(11, '400'); ctx.fillStyle = '#5A5247';
+      ctx.fillText('长按扫码，测你是哪种', M + 160, y + 62);
+      ctx.fillText('快乐的穷鬼', M + 160, y + 80);
+
       showSavableImage(c.toDataURL('image/png'));
     } catch (e) { alert('生成图片失败，请重试一次：' + e.message); }
   }
@@ -534,6 +595,20 @@
     ov.querySelector('button').onclick = () => ov.remove();
     ov.onclick = e => { if (e.target === ov) ov.remove(); };
     document.body.appendChild(ov);
+  }
+  // 智能换行：先量整句，一行能放下就一行；放不下尽量均匀断两行，不出现第二行孤字
+  function smartWrap(ctx, text, x, y, maxW, lh) {
+    const w = ctx.measureText(text).width;
+    if (w <= maxW) { ctx.fillText(text, x, y); return; }
+    // 找接近中点、优先标点处断
+    const mid = Math.floor(text.length / 2);
+    let brk = mid;
+    const punct = ',，.。!！?？;；:：、—… ';
+    for (let i = mid; i < text.length && i < mid + 6; i++) { if (punct.includes(text[i])) { brk = i + 1; break; } }
+    if (brk === mid) { for (let i = mid; i > mid - 6 && i > 2; i--) { if (punct.includes(text[i])) { brk = i + 1; break; } } }
+    const l1 = text.slice(0, brk), l2 = text.slice(brk);
+    ctx.fillText(l1, x, y);
+    ctx.fillText(l2, x, y + lh);
   }
   function wrapText(ctx, text, x, y, maxW, lh) { const chars = text.split(''); let line = '', yy = y; for (const ch of chars) { if (ctx.measureText(line + ch).width > maxW && line) { ctx.fillText(line, x, yy); line = ch; yy += lh; } else line += ch; } ctx.fillText(line, x, yy); }
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
