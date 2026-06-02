@@ -176,10 +176,11 @@
   ];
   let danmakuTimer = null;
   function danmakuStart() {
-    const layer = document.getElementById('danmaku-layer');
-    if (!layer || danmakuTimer) return;
+    if (danmakuTimer) return;
     const spawn = () => {
       if (state.stage === 'intro' || state.stage === 'loading') return;
+      const layer = document.getElementById('danmaku-layer'); // 每次重新查，防页面切换后引用失效
+      if (!layer) return;
       const el = document.createElement('div');
       const cls = Math.random() < 0.2 ? 'accent' : (Math.random() < 0.15 ? 'gold' : '');
       el.className = 'danmaku ' + cls;
@@ -190,7 +191,7 @@
       layer.appendChild(el);
       el.addEventListener('animationend', () => el.remove());
     };
-    spawn();
+    setTimeout(() => spawn(), 500); // 首屏渲染后再触发，不用等第一个 interval
     danmakuTimer = setInterval(spawn, 1400 + Math.random() * 1600);
   }
   function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } }
