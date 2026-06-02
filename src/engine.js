@@ -18,7 +18,7 @@ const CONFIG = {
   // —— 维度判定阈值（先拍一版，对应 content/dimensions.md，上线看真实分布再调）——
   // 新维度字母：E/L 起步 · R/C 储蓄 · M/B 本金 · H/S 物欲
   thresholds: {
-    earlyYears: 25,         // 距退休 ≥25 年 → E(早)，否则 L(晚)
+    earlyYears: 20,         // 距退休 ≥20 年 → E(早),否则 L(晚) — v3 已同步原型
     saveMonthly: 2000,      // 每月能存 ≥2000 → R(能存)，否则 C(月光)
     principal: 100000,      // 现有存款 ≥10万 → M(有底)，否则 B(白手)
     spendMonthly: 8000,     // 期望退休月花 ≥8000 → H(高物欲)，否则 S(低物欲)
