@@ -153,13 +153,12 @@
   function renderIntro() {
     screen(`
       <div class="rise d1"><h1 class="hero">几岁能<em>躺平</em>？<br>测测你的<br><em>理财人格</em></h1></div>
-      <p class="subtitle rise d2">${TOTAL} 题 · 约 90 秒 · 算出你几岁退休 + 送你一个搞笑人格码。<br>搞钱搞不动，那就先笑一个。</p>
+      <p class="subtitle rise d2">${TOTAL} 题<br>约 90 秒<br>算出你几岁退休 + 送你一个搞笑人格码。<br>搞钱搞不动，那就先笑一个。</p>
       <div class="rise d3" style="margin-top:auto;"><button class="btn coral" id="start">开测，看看我有多惨</button></div>
       <p class="tiny rise d4">本测试只为博你一乐，数字基于复利模型测算，仅供参考。</p>
     `);
     document.getElementById('start').onclick = () => {
       SFX.setOn(true); SFX.unlock(); SFX.play('start'); SFX.bgmStart();
-      danmakuStart();
       state.stage = 'q'; state.idx = 0; go();
     };
   }
@@ -183,7 +182,7 @@
   function danmakuStart() {
     if (danmakuTimer) return;
     const spawn = () => {
-      if (state.stage === 'intro' || state.stage === 'loading') return;
+      if (state.stage !== 'result') return; // 只在结果页飘
       const layer = document.getElementById('danmaku-layer'); // 每次重新查，防页面切换后引用失效
       if (!layer) return;
       const el = document.createElement('div');
@@ -199,7 +198,9 @@
     setTimeout(() => spawn(), 500); // 首屏渲染后再触发，不用等第一个 interval
     danmakuTimer = setInterval(spawn, 1400 + Math.random() * 1600);
   }
-  function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } }
+  let danmakuOn = true;
+  function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } danmakuLayer.innerHTML = ''; }
+  function danmakuToggle() { danmakuOn = !danmakuOn; if (danmakuOn) danmakuStart(); else danmakuStop(); return danmakuOn; }
 
   /* —— 计算题（滑块，小人上方）—— */
   function renderCalc(item, i) {
@@ -436,6 +437,17 @@
       <canvas id="cardCanvas" width="900" height="1260" style="display:none"></canvas>
     `);
 
+    // 弹幕：结果页启动 + 顶部开关
+    danmakuStart();
+    const sndBar = document.querySelector('.topbar');
+    if (sndBar) {
+      const dmBtn = document.createElement('button');
+      dmBtn.className = 'sound-toggle on';
+      dmBtn.id = 'dmBtn'; dmBtn.textContent = '💬'; dmBtn.style.marginLeft = '6px';
+      dmBtn.onclick = () => { const on = danmakuToggle(); dmBtn.textContent = on ? '💬' : '🚫'; dmBtn.classList.toggle('on', on); };
+      sndBar.appendChild(dmBtn);
+    }
+
     // 收益率切换
     const tabs = root.querySelectorAll('.compare-tab');
     const big = document.getElementById('cmpBig'), cap = document.getElementById('cmpCap'), body = document.getElementById('cmpBody');
@@ -464,7 +476,7 @@
       fa.innerHTML = `<button class="btn coral" id="save">保存我的结果图，去晒 📸</button>
         <button class="btn" id="shareBtn">复制分享链接</button>
         <button class="btn ghost" id="restart">重测一次</button>`;
-      document.getElementById('restart').onclick = () => { SFX.play('tap'); state.stage = 'intro'; state.idx = 0; state.answers = {}; CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default); go(); };
+      document.getElementById('restart').onclick = () => { SFX.play('tap'); danmakuStop(); state.stage = 'intro'; state.idx = 0; state.answers = {}; CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default); go(); };
       document.getElementById('save').onclick = () => { SFX.play('press'); buildShareCard(r, p); };
       document.getElementById('shareBtn').onclick = () => {
         const link = location.origin + location.pathname + '?r=' + encodeResult(r);
@@ -474,14 +486,12 @@
   }
 
   /* ============================================================
-     分享图 v2 —— 称号放大到想截图
+     分享图 v3 · 方向B 收藏卡（两遍绘制，自动裁高）
      ============================================================ */
-  /* —— 分享图 v3 · 方向B 精致收藏卡（900×1260）—— */
-  async function buildShareCard(res, p) {
-    try {
-      const c = document.getElementById('cardCanvas');
-      const ctx = c.getContext('2d');
-      const W = c.width, H = c.height;
+  const SC = { W: 900, M: 36 };
+  async function drawShareCard(ctx, res, p) {
+    const W = SC.W, M = SC.M;
+    const H = ctx.canvas.height;
       if (document.fonts && document.fonts.ready) {
         try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]); } catch (_) { }
       }
@@ -492,99 +502,87 @@
       const r10age = isFinite(res.r10) ? Math.round(res.r10) + '岁' : '∞';
       const r2age = isFinite(res.r2) ? Math.round(res.r2) + '岁' : '∞';
 
-      // 底：暖纸
-      ctx.fillStyle = '#F2E9D8'; ctx.fillRect(0, 0, W, H);
-      // 圆点纹理
-      ctx.fillStyle = 'rgba(234,223,201,.5)';
-      for (let px = 0; px < W; px += 18) { for (let py = 0; py < H; py += 18) { ctx.beginPath(); ctx.arc(px, py, .8, 0, Math.PI * 2); ctx.fill(); } }
+    // 底：暖纸 + 圆点纹理
+    ctx.fillStyle = '#F2E9D8'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(234,223,201,.5)';
+    for (let px = 0; px < W; px += 18) for (let py = 0; py < H; py += 18) { ctx.beginPath(); ctx.arc(px, py, .8, 0, Math.PI*2); ctx.fill(); }
 
-      // 卡牌框：3px墨黑边 + 硬投影 + 圆角
-      const M = 36; // margin
-      ctx.fillStyle = '#FBF6EA';
-      roundRect(ctx, M, M, W - M * 2, H - M * 2, 14); ctx.fill();
-      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 3;
-      roundRect(ctx, M + 2, M + 2, W - M * 2 - 4, H - M * 2 - 4, 14); ctx.stroke();
-      // 硬投影
-      ctx.fillStyle = '#211C16';
-      roundRect(ctx, M + 5, M + 5, W - M * 2, H - M * 2, 14); ctx.fill();
-      ctx.fillStyle = '#FBF6EA';
-      roundRect(ctx, M, M, W - M * 2, H - M * 2, 14); ctx.fill();
-      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 3;
-      roundRect(ctx, M, M, W - M * 2, H - M * 2, 14); ctx.stroke();
+    // 卡牌框 + 硬投影
+    ctx.fillStyle = '#211C16';
+    roundRect(ctx, M+5, M+5, W-M*2, H-M*2, 14); ctx.fill();
+    ctx.fillStyle = '#FBF6EA';
+    roundRect(ctx, M, M, W-M*2, H-M*2, 14); ctx.fill();
+    ctx.strokeStyle = '#211C16'; ctx.lineWidth = 3;
+    roundRect(ctx, M, M, W-M*2, H-M*2, 14); ctx.stroke();
 
-      ctx.textAlign = 'center';
-      let y = M + 10;
+    ctx.textAlign = 'center'; let y = M+10;
 
-      // 卡头：墨黑底横条
-      ctx.fillStyle = '#211C16';
-      roundRect(ctx, M + 4, y, W - M * 2 - 8, 54, 10); ctx.fill();
-      ctx.font = F(15, '700'); ctx.fillStyle = '#E8A33D';
-      ctx.textAlign = 'left';
-      ctx.fillText(codeLetters, M + 22, y + 35);
-      // 稀有度标
-      ctx.textAlign = 'right';
-      ctx.font = F(12, '700'); ctx.fillStyle = '#FF4D2E';
-      ctx.strokeStyle = '#FF4D2E'; ctx.lineWidth = 1.5;
-      roundRect(ctx, W - M - 140, y + 10, 116, 34, 6); ctx.stroke();
-      ctx.fillText(`击败${cityName2} ${res.cityPercentile}%`, W - M - 30, y + 32);
-      ctx.textAlign = 'center';
-      y += 74;
+    // 卡头
+    ctx.fillStyle = '#211C16'; roundRect(ctx, M+4, y, W-M*2-8, 54, 10); ctx.fill();
+    ctx.font = F(15,'700'); ctx.fillStyle = '#E8A33D';
+    ctx.textAlign = 'left'; ctx.fillText(codeLetters, M+22, y+35);
+    // 稀有度标
+    ctx.textAlign = 'right'; ctx.font = F(12,'700'); ctx.fillStyle = '#FF4D2E';
+    ctx.strokeStyle = '#FF4D2E'; ctx.lineWidth = 1.5;
+    roundRect(ctx, W-M-140, y+10, 116, 34, 6); ctx.stroke();
+    ctx.fillText(`击败${cityName2} ${res.cityPercentile}%`, W-M-30, y+32);
+    ctx.textAlign = 'center'; y += 74;
 
-      // 称号区：珊瑚红底
-      ctx.fillStyle = '#FF4D2E';
-      roundRect(ctx, M + 4, y, W - M * 2 - 8, 96, 12); ctx.fill();
-      ctx.font = F(46, '900'); ctx.fillStyle = '#fff';
-      smartWrap(ctx, p.title, W / 2, y + 55, W - 140, 52);
-      // 副标题
-      if (p.subtitle) {
-        ctx.font = F(16, '400'); ctx.fillStyle = 'rgba(255,255,255,.85)';
-        ctx.fillText(p.subtitle, W / 2, y + 82);
+    // 称号区
+    ctx.fillStyle = '#FF4D2E'; roundRect(ctx, M+4, y, W-M*2-8, 96, 12); ctx.fill();
+    ctx.font = F(46,'900'); ctx.fillStyle = '#fff';
+    smartWrap(ctx, p.title, W/2, y+55, W-140, 52);
+    if (p.subtitle) { ctx.font = F(16,'400'); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillText(p.subtitle, W/2, y+82); }
+    y += 116;
+
+    // 数据行 ×2
+    ctx.fillStyle = '#FBF6EA'; ctx.strokeStyle = '#211C16'; ctx.lineWidth = 2;
+    roundRect(ctx, M+10, y, W-M*2-20, 52, 10); ctx.fill(); ctx.stroke();
+    ctx.textAlign = 'left'; ctx.font = F(14,'400'); ctx.fillStyle = '#5A5247'; ctx.fillText('合理理财 · 能躺平年纪', M+28, y+32);
+    ctx.textAlign = 'right'; ctx.font = F(30,'900'); ctx.fillStyle = '#FF4D2E'; ctx.fillText(r10age, W-M-28, y+32);
+    y += 66;
+    ctx.textAlign = 'left'; ctx.fillStyle = '#FBF6EA';
+    roundRect(ctx, M+10, y, W-M*2-20, 52, 10); ctx.fill(); ctx.stroke();
+    ctx.font = F(14,'400'); ctx.fillStyle = '#5A5247'; ctx.fillText('只存银行 · 要熬到', M+28, y+32);
+    ctx.textAlign = 'right'; ctx.font = F(30,'900'); ctx.fillStyle = '#211C16'; ctx.fillText(r2age, W-M-28, y+32);
+    ctx.textAlign = 'center'; y += 80;
+
+    // 金句卡
+    ctx.fillStyle = '#211C16'; roundRect(ctx, M+10, y, W-M*2-20, 62, 10); ctx.fill();
+    ctx.font = F(13,'400'); ctx.fillStyle = '#F2E9D8';
+    smartWrap(ctx, '"'+p.quote+'"', W/2, y+32, W-140, 22);
+    y += 80;
+
+    // QR + 卡脚
+    const shareURL = location.origin + location.pathname + '?r=' + encodeResult(res);
+    const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(shareURL);
+    try {
+      const qrImg = await new Promise((resolve, reject) => {
+        const img = new Image(); img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img); img.onerror = () => reject(new Error('QR load fail'));
+        img.src = qrURL;
+      });
+      ctx.drawImage(qrImg, M+22, y, 120, 120);
+    } catch (_) {}
+    ctx.textAlign = 'left';
+    ctx.font = F(13,'700'); ctx.fillStyle = '#FF4D2E'; ctx.fillText('钱格测试', M+160, y+40);
+    ctx.font = F(11,'400'); ctx.fillStyle = '#5A5247'; ctx.fillText('长按扫码，测你是哪种', M+160, y+62);
+    ctx.fillText('快乐的穷鬼', M+160, y+80);
+    return y;
+  }
+
+  async function buildShareCard(res, p) {
+    try {
+      const c = document.getElementById('cardCanvas');
+      if (document.fonts && document.fonts.ready) {
+        try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]); } catch (_) { }
       }
-      y += 116;
-
-      // 数据行 ×2
-      ctx.fillStyle = '#FBF6EA'; ctx.strokeStyle = '#211C16'; ctx.lineWidth = 2;
-      roundRect(ctx, M + 10, y, W - M * 2 - 20, 52, 10); ctx.fill(); ctx.stroke();
-      ctx.textAlign = 'left'; ctx.font = F(14, '400'); ctx.fillStyle = '#5A5247';
-      ctx.fillText('合理理财 · 能躺平年纪', M + 28, y + 32);
-      ctx.textAlign = 'right'; ctx.font = F(30, '900'); ctx.fillStyle = '#FF4D2E';
-      ctx.fillText(r10age, W - M - 28, y + 32);
-      y += 66;
-
-      ctx.textAlign = 'left'; ctx.fillStyle = '#FBF6EA'; ctx.strokeStyle = '#211C16';
-      roundRect(ctx, M + 10, y, W - M * 2 - 20, 52, 10); ctx.fill(); ctx.stroke();
-      ctx.font = F(14, '400'); ctx.fillStyle = '#5A5247';
-      ctx.fillText('只存银行 · 要熬到', M + 28, y + 32);
-      ctx.textAlign = 'right'; ctx.font = F(30, '900'); ctx.fillStyle = '#211C16';
-      ctx.fillText(r2age, W - M - 28, y + 32);
-      ctx.textAlign = 'center';
-      y += 80;
-
-      // 金句卡
-      ctx.fillStyle = '#211C16';
-      roundRect(ctx, M + 10, y, W - M * 2 - 20, 62, 10); ctx.fill();
-      ctx.font = F(13, '400'); ctx.fillStyle = '#F2E9D8';
-      smartWrap(ctx, '"' + p.quote + '"', W / 2, y + 32, W - 140, 22);
-      y += 80;
-
-      // 卡脚：左QR + 右文字
-      const shareURL = location.origin + location.pathname + '?r=' + encodeResult(res);
-      const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(shareURL);
-      try {
-        const qrImg = await new Promise((resolve, reject) => {
-          const img = new Image(); img.crossOrigin = 'anonymous';
-          img.onload = () => resolve(img); img.onerror = () => reject(new Error('QR load fail'));
-          img.src = qrURL;
-        });
-        ctx.drawImage(qrImg, M + 22, y, 120, 120);
-      } catch (_) { /* QR fail → skip */ }
-      ctx.textAlign = 'left';
-      ctx.font = F(13, '700'); ctx.fillStyle = '#FF4D2E';
-      ctx.fillText('钱格测试', M + 160, y + 40);
-      ctx.font = F(11, '400'); ctx.fillStyle = '#5A5247';
-      ctx.fillText('长按扫码，测你是哪种', M + 160, y + 62);
-      ctx.fillText('快乐的穷鬼', M + 160, y + 80);
-
+      // 第一遍：临时高度跑一次，拿到真实底部 y
+      c.width = SC.W; c.height = 1400;
+      const finalY = await drawShareCard(c.getContext('2d'), res, p);
+      // 第二遍：裁到真实高度重画
+      c.height = Math.round(finalY + 156);
+      await drawShareCard(c.getContext('2d'), res, p);
       showSavableImage(c.toDataURL('image/png'));
     } catch (e) { alert('生成图片失败，请重试一次：' + e.message); }
   }
