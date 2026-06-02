@@ -409,7 +409,7 @@
   }
 
   /* ============================================================
-     分享图（canvas，长按保存）
+     分享图 v2 —— 称号放大到想截图
      ============================================================ */
   async function buildShareCard(res, p) {
     try {
@@ -419,44 +419,73 @@
       if (document.fonts && document.fonts.ready) {
         try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]); } catch (_) { }
       }
+      // 底
       ctx.fillStyle = '#F2E9D8'; ctx.fillRect(0, 0, W, H);
-      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 10; ctx.strokeRect(34, 34, W - 68, H - 68);
+      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 12; ctx.strokeRect(40, 40, W - 80, H - 80);
       ctx.fillStyle = '#211C16'; ctx.textAlign = 'center';
       const F = (size, weight = '700') => `${weight} ${size}px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif`;
 
-      ctx.font = F(36, '900'); ctx.fillStyle = '#FF4D2E'; ctx.fillText('$ 钱格测试', W / 2, 110);
-      ctx.font = F(36, '700'); ctx.fillStyle = '#2E7D6B'; ctx.fillText(res.dimensions.code.split('').join('  '), W / 2, 200);
-      ctx.font = F(56, '900'); ctx.fillStyle = '#211C16';
-      wrapText(ctx, p.title, W / 2, 300, W - 200, 64);
-      ctx.fillStyle = '#E8A33D'; roundRect(ctx, 90, 440, W - 180, 110, 24); ctx.fill();
-      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 6; roundRect(ctx, 90, 440, W - 180, 110, 24); ctx.stroke();
-      ctx.fillStyle = '#211C16'; ctx.font = F(30, '700');
-      const cityFeed2 = state.answers['city'] && state.answers['city'].feed;
-      const cityName2 = cityFeed2 ? cityFeed2.replace('city:', '') : '同城';
-      ctx.fillText(`退休速度打败了${cityName2}`, W / 2, 490);
-      ctx.fillStyle = '#FF4D2E'; ctx.font = F(48, '900');
-      ctx.fillText(`${res.cityPercentile}% 的人 🏙️`, W / 2, 535);
-      const age = isFinite(res.retirement.achievableRetireAge) ? Math.round(res.retirement.achievableRetireAge) + ' 岁' : '再想想';
-      ctx.fillStyle = '#211C16'; ctx.font = F(26, '700'); ctx.fillText('照这个存法，大约能躺平的年纪', W / 2, 640);
-      ctx.fillStyle = '#FF4D2E'; ctx.font = F(84, '900'); ctx.fillText(age, W / 2, 730);
-      ctx.fillStyle = '#211C16'; ctx.font = F(26, '400');
-      wrapText(ctx, p.quote, W / 2, 860, W - 140, 42);
+      // 顶部 logo
+      ctx.font = '900 28px "Smiley Sans","PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.fillStyle = '#FF4D2E'; ctx.fillText('$BTI  钱格测试', W / 2, 110);
 
+      // 人格码 —— 大黑块白字勋章
+      const codeLetters = res.dimensions.code.split('').join('  ');
+      ctx.fillStyle = '#211C16'; roundRect(ctx, W / 2 - 200, 150, 400, 90, 20); ctx.fill();
+      ctx.font = '900 52px "Smiley Sans","PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.fillStyle = '#F2E9D8'; ctx.fillText(codeLetters, W / 2, 215);
+
+      // 称号 —— 超大，主视觉
+      ctx.font = F(80, '900'); ctx.fillStyle = '#211C16';
+      wrapText(ctx, p.title, W / 2, 320, W - 160, 90);
+      // 副标题
+      if (p.subtitle) {
+        ctx.font = F(32, '400'); ctx.fillStyle = '#5A5247';
+        ctx.fillText(p.subtitle, W / 2, p.title.length > 6 ? 420 : 390);
+      }
+
+      // 排名 —— 金底大卡
+      const rankY = p.title.length > 6 ? 480 : 450;
+      ctx.fillStyle = '#E8A33D'; roundRect(ctx, 80, rankY, W - 160, 130, 24); ctx.fill();
+      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 6; roundRect(ctx, 80, rankY, W - 160, 130, 24); ctx.stroke();
+      const cityFeed2 = state.answers['city'] && state.answers['city'].feed;
+      const cityName2 = cityFeed2 ? cityFeed2.replace('city:', '') : '你的城市';
+      ctx.fillStyle = '#211C16'; ctx.font = F(28, '700');
+      ctx.fillText(`在${cityName2}，你的退休速度打败了`, W / 2, rankY + 42);
+      ctx.fillStyle = '#FF4D2E'; ctx.font = F(60, '900');
+      ctx.fillText(`${res.cityPercentile}% 的人`, W / 2, rankY + 100);
+
+      // 退休年龄
+      const age = isFinite(res.retirement.achievableRetireAge) ? Math.round(res.retirement.achievableRetireAge) + ' 岁' : '再想想';
+      const numY = rankY + 180;
+      ctx.fillStyle = '#211C16'; ctx.font = F(24, '700');
+      ctx.fillText('照这个存法，大约能躺平的年纪', W / 2, numY);
+      ctx.fillStyle = '#FF4D2E'; ctx.font = F(90, '900');
+      ctx.fillText(age, W / 2, numY + 90);
+
+      // 金句
+      ctx.fillStyle = '#211C16'; ctx.font = F(24, '400');
+      const qY = numY + 170;
+      ctx.fillStyle = '#FBF6EA'; roundRect(ctx, 80, qY - 30, W - 160, 100, 16); ctx.fill();
+      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 3; roundRect(ctx, 80, qY - 30, W - 160, 100, 16); ctx.stroke();
+      ctx.fillStyle = '#211C16'; wrapText(ctx, `"${p.quote}"`, W / 2, qY + 10, W - 200, 36);
+
+      // QR 码
       const shareURL = location.origin + location.pathname + '?r=' + encodeResult(res);
-      const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(shareURL);
+      const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(shareURL);
       try {
         const qrImg = await new Promise((resolve, reject) => {
           const img = new Image(); img.crossOrigin = 'anonymous';
           img.onload = () => resolve(img); img.onerror = () => reject(new Error('QR load fail'));
           img.src = qrURL;
         });
-        ctx.drawImage(qrImg, W / 2 - 80, H - 260, 160, 160);
-        ctx.fillStyle = '#5A5247'; ctx.font = F(20, '400');
-        ctx.fillText('长按扫码，测测你是哪种快乐的穷鬼', W / 2, H - 74);
+        ctx.drawImage(qrImg, W / 2 - 75, H - 230, 150, 150);
+        ctx.fillStyle = '#5A5247'; ctx.font = F(18, '400');
+        ctx.fillText('长按扫码，测测你是哪种快乐的穷鬼', W / 2, H - 60);
       } catch (_) {
-        ctx.fillStyle = '#5A5247'; ctx.font = F(20, '400');
-        ctx.fillText('长按扫码测测你是哪种快乐的穷鬼', W / 2, H - 110);
-        ctx.fillText(shareURL, W / 2, H - 74);
+        ctx.fillStyle = '#5A5247'; ctx.font = F(18, '400');
+        ctx.fillText('长按扫码，测测你是哪种快乐的穷鬼', W / 2, H - 90);
+        ctx.fillText(shareURL, W / 2, H - 60);
       }
       showSavableImage(c.toDataURL('image/png'));
     } catch (e) { alert('生成图片失败，请重试一次：' + e.message); }
