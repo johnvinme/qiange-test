@@ -1,22 +1,69 @@
 /* ============================================================
- * app.js — 钱格测试 交互框架（状态机 + 渲染 + 雷达 + 结果图）
- * 由框架作者写好。DeepSeek 一般不用动这里，只填 content.js。
- * 流程：intro → 计算题(滑块) → 性格题(选项) → 加载 → 结果
+ * app.js — 钱格测试 交互框架 v3（复古游戏机 × 摆烂自嘲）
+ * 合原型音效/转场/滑块 + 分享链路
  * ============================================================ */
 (function () {
-  const { CALC_QUESTIONS, PERSONALITY_QUESTIONS, PERSONALITIES } = window.QGContent;
+  const { CALC_QUESTIONS, PERSONALITY_QUESTIONS, SCALE_QUESTIONS, PERSONALITIES, CITY_META } = window.QGContent;
   const root = document.getElementById('app');
 
   const state = {
     stage: 'intro',
-    shared: false,   // 从分享链接点进来 → true，直接展示结果
-    calc: {},        // {currentAge: 28, ...}
-    pIndex: 0,       // 当前性格题下标
-    pAnswers: [],    // [{id, feed}]
+    shared: false,
+    idx: 0,
+    calc: {},
+    answers: {},
     result: null,
   };
+  CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default);
 
-  /* ---------- 分享链接编解码（UTF-8 安全，无废弃 API）---------- */
+  /* ============================================================
+     ♪ Chiptune 音效引擎 —— Web Audio 纯合成，零文件
+     ============================================================ */
+  const SFX = (() => {
+    let ctx = null, masterOn = false, bgmTimer = null;
+    function ac() { if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); } return ctx; }
+    function note(f, t, { type = 'square', vol = 0.18, when = 0, slideTo = null } = {}) {
+      if (!masterOn) return;
+      const c = ac(); const o = c.createOscillator(); const g = c.createGain();
+      o.type = type; const start = c.currentTime + when;
+      o.frequency.setValueAtTime(f, start);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, start + t);
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(vol, start + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + t);
+      o.connect(g); g.connect(c.destination); o.start(start); o.stop(start + t + 0.02);
+    }
+    function chord(freqs, t, opt) { freqs.forEach(f => note(f, t, opt)); }
+    const lib = {
+      tap: () => note(440, 0.06, { type: 'square', vol: 0.12 }),
+      press: () => { note(330, 0.05, { vol: 0.14 }); note(495, 0.07, { when: 0.04, vol: 0.12 }); },
+      tick: () => note(880, 0.025, { type: 'square', vol: 0.05 }),
+      select: () => { note(660, 0.06, { vol: 0.13 }); note(880, 0.08, { when: 0.05, vol: 0.13 }); },
+      moodUp: () => note(784, 0.07, { type: 'triangle', vol: 0.1, slideTo: 1046 }),
+      moodDown: () => note(392, 0.09, { type: 'triangle', vol: 0.1, slideTo: 262 }),
+      flip: () => { note(587, 0.05, { vol: 0.12 }); note(784, 0.07, { when: 0.05, vol: 0.12 }); },
+      start: () => { [392, 523, 659, 784].forEach((f, i) => note(f, 0.1, { when: i * 0.07, vol: 0.14 })); },
+      fanfare: () => { const seq = [523, 659, 784, 1046, 1318]; seq.forEach((f, i) => note(f, 0.14, { when: i * 0.09, vol: 0.16, type: 'square' })); chord([1046, 1318], 0.5, { when: seq.length * 0.09, vol: 0.12, type: 'triangle' }); },
+      countTick: () => note(1200, 0.02, { type: 'square', vol: 0.06 }),
+    };
+    return {
+      unlock() { ac().resume && ac().resume(); },
+      setOn(v) { masterOn = v; if (!v && bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; } },
+      isOn() { return masterOn; },
+      play(name) { (lib[name] || (() => { }))(); },
+      bgmStart() {
+        if (!masterOn || bgmTimer) return;
+        const bass = [131, 131, 165, 147]; let step = 0;
+        const beat = () => { if (!masterOn) return; const f = bass[step % bass.length]; note(f, 0.42, { type: 'triangle', vol: 0.06 }); if (step % 4 === 2) note(f * 4, 0.12, { type: 'square', vol: 0.03, when: 0.2 }); step++; };
+        beat(); bgmTimer = setInterval(beat, 520);
+      },
+      bgmStop() { if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; } },
+    };
+  })();
+
+  /* ============================================================
+     分享编解码
+     ============================================================ */
   function encodeResult(res) {
     const o = { c: res.dimensions.code, s: res.dimensions.scores,
       a: isFinite(res.retirement.achievableRetireAge) ? res.retirement.achievableRetireAge : null,
@@ -33,307 +80,286 @@
     return { dimensions: { code: o.c, scores: o.s }, retirement: { achievableRetireAge: o.a, monthlySaveNeeded: o.m }, cityPercentile: o.p };
   }
 
-  // 预填计算题默认值
-  CALC_QUESTIONS.forEach((q) => (state.calc[q.key] = q.default));
+  /* ============================================================
+     题目流：5 计算 + 滑块 + 选择 + 城市（统一编号）
+     ============================================================ */
+  const FLOW = [
+    ...CALC_QUESTIONS.map(q => ({ kind: 'calc', q })),
+    ...SCALE_QUESTIONS.map(q => ({ kind: 'scale', q })),
+    ...PERSONALITY_QUESTIONS.filter(q => q.type !== 'city').map(q => ({ kind: 'choice', q })),
+    ...PERSONALITY_QUESTIONS.filter(q => q.type === 'city').map(q => ({ kind: 'choice', q, isCity: true })),
+  ];
+  const TOTAL = FLOW.length;
 
-  /* ---------- 顶部 logo ---------- */
-  function brand() {
-    return `<div class="brand"><span class="dollar">$</span>BTI&nbsp;<span class="brand-name">钱格测试</span></div>`;
+  /* ============================================================
+     转场 / 渲染框架
+     ============================================================ */
+  function transition(renderFn) {
+    const old = root.querySelector('.screen');
+    if (old) { old.classList.add('leaving'); setTimeout(() => { renderFn(); }, 230); }
+    else renderFn();
+  }
+  function screen(html) {
+    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
+    const sb = document.getElementById('sndBtn');
+    if (sb) sb.onclick = () => {
+      const next = !SFX.isOn(); SFX.setOn(next);
+      if (next) { SFX.unlock(); SFX.play('select'); SFX.bgmStart(); }
+      else { SFX.bgmStop(); }
+      sb.textContent = next ? '🔊' : '🔇'; sb.classList.toggle('on', next);
+    };
   }
 
-  /* ---------- intro ---------- */
-  function renderIntro() {
-    root.innerHTML = `
-      ${brand()}
-      <div class="reveal d1">
-        <h1 class="title">几岁能<em>躺平</em>？<br>测测你的<br><em>理财人格</em></h1>
-        <p class="subtitle">25 道题 · 90 秒 · 算出你几岁退休 + 送你一个搞笑人格码。<br>搞钱搞不动，那就先笑一个。</p>
-      </div>
-      <div class="reveal d2"><button class="btn coral" id="start">开测，看看我有多惨</button></div>
-      <p class="tiny reveal d3">本测试只为博你一乐，数字基于复利模型测算，仅供参考。</p>
-    `;
-    document.getElementById('start').onclick = () => { state.stage = 'calc'; state.calcIndex = 0; render(); };
-  }
+  function progressBar(i) { return `<div class="progress rise d1"><i style="width:${(i / TOTAL * 100).toFixed(0)}%"></i></div>`; }
 
-  // 全测题目总数（计算题 + 性格题），用于统一编号和进度
-  const TOTAL = CALC_QUESTIONS.length + PERSONALITY_QUESTIONS.length;
-
-  // 根据当前值取吐槽对象：第一个 upTo >= val 的那条 {text, mood}
-  function getQuip(q, val) {
-    if (!q.quips) return { text: '', mood: 'chill' };
-    const hit = q.quips.find((x) => val <= x.upTo);
-    return hit || { text: '', mood: 'chill' };
-  }
-
-  /* ---------- 贱兮兮的表情脸（SVG，跟着 mood 变）---------- */
+  /* —— 表情脸 —— */
   function faceSVG(mood) {
-    // 每种 mood 定义一对眼睛 + 嘴 + 可选配件
     const F = {
-      chill:  { eyes: '<circle cx="36" cy="46" r="4"/><circle cx="64" cy="46" r="4"/>', mouth: '<path d="M38 64 Q50 70 62 64" fill="none" stroke-width="4" stroke-linecap="round"/>' },
-      smug:   { eyes: '<path d="M30 46 q6 -5 12 0" /><path d="M58 46 q6 -5 12 0"/>', mouth: '<path d="M36 62 Q52 74 64 60" fill="none" stroke-width="4" stroke-linecap="round"/>', extra: '' },
-      sneer:  { eyes: '<path d="M30 44 q6 4 12 0"/><circle cx="64" cy="46" r="4"/>', mouth: '<path d="M38 66 q6 -8 12 0 q6 8 12 0" fill="none" stroke-width="4" stroke-linecap="round"/>' },
-      sour:   { eyes: '<circle cx="38" cy="44" r="4"/><circle cx="66" cy="44" r="4"/>', mouth: '<path d="M38 66 L62 66" stroke-width="4" stroke-linecap="round"/>', extra: '<path d="M74 40 q6 8 0 14" fill="none" stroke-width="3" opacity="0.6"/>' },
-      cry:    { eyes: '<circle cx="36" cy="46" r="6"/><circle cx="64" cy="46" r="6"/>', mouth: '<path d="M40 68 Q50 60 60 68" fill="none" stroke-width="4" stroke-linecap="round"/>', extra: '<path d="M34 52 q-2 8 0 12" fill="none" stroke-width="3" opacity="0.7"/><path d="M66 52 q2 8 0 12" fill="none" stroke-width="3" opacity="0.7"/>' },
-      wow:    { eyes: '<circle cx="36" cy="45" r="7"/><circle cx="64" cy="45" r="7"/>', mouth: '<ellipse cx="50" cy="66" rx="8" ry="10" fill="none" stroke-width="4"/>' },
-      roll:   { eyes: '<path d="M30 48 a6 6 0 0 1 12 0" fill="none" stroke-width="4"/><path d="M58 48 a6 6 0 0 1 12 0" fill="none" stroke-width="4"/>', mouth: '<path d="M38 66 L62 66" stroke-width="4" stroke-linecap="round"/>' },
-      wink:   { eyes: '<path d="M30 46 q6 4 12 0" fill="none" stroke-width="4"/><circle cx="64" cy="46" r="4"/>', mouth: '<path d="M36 60 Q52 74 66 60" fill="none" stroke-width="4" stroke-linecap="round"/>' },
-      dead:   { eyes: '<path d="M32 46 L42 46"/><path d="M58 46 L68 46"/>', mouth: '<path d="M38 66 L62 66" stroke-width="4" stroke-linecap="round"/>' },
-      money:  { eyes: '<text x="36" y="52" font-size="16" text-anchor="middle" stroke="none">$</text><text x="64" y="52" font-size="16" text-anchor="middle" stroke="none">$</text>', mouth: '<path d="M34 60 Q50 76 66 60 Q50 66 34 60" stroke-width="3"/>' },
+      chill: { e: '<circle cx="36" cy="46" r="4"/><circle cx="64" cy="46" r="4"/>', m: '<path d="M38 64 Q50 70 62 64" fill="none" stroke-width="4" stroke-linecap="round"/>' },
+      smug: { e: '<path d="M30 46 q6 -5 12 0"/><path d="M58 46 q6 -5 12 0"/>', m: '<path d="M36 62 Q52 74 64 60" fill="none" stroke-width="4" stroke-linecap="round"/>' },
+      sneer: { e: '<path d="M30 44 q6 4 12 0"/><circle cx="64" cy="46" r="4"/>', m: '<path d="M38 66 q6 -8 12 0 q6 8 12 0" fill="none" stroke-width="4" stroke-linecap="round"/>' },
+      sour: { e: '<circle cx="38" cy="44" r="4"/><circle cx="66" cy="44" r="4"/>', m: '<path d="M38 66 L62 66" stroke-width="4" stroke-linecap="round"/>' },
+      cry: { e: '<circle cx="36" cy="46" r="6"/><circle cx="64" cy="46" r="6"/>', m: '<path d="M40 68 Q50 60 60 68" fill="none" stroke-width="4" stroke-linecap="round"/>', x: '<path d="M34 52 q-2 8 0 12" fill="none" stroke-width="3" opacity=".7"/>' },
+      wow: { e: '<circle cx="36" cy="45" r="7"/><circle cx="64" cy="45" r="7"/>', m: '<ellipse cx="50" cy="66" rx="8" ry="10" fill="none" stroke-width="4"/>' },
+      roll: { e: '<path d="M30 48 a6 6 0 0 1 12 0" fill="none" stroke-width="4"/><path d="M58 48 a6 6 0 0 1 12 0" fill="none" stroke-width="4"/>', m: '<path d="M38 66 L62 66" stroke-width="4" stroke-linecap="round"/>' },
+      wink: { e: '<path d="M30 46 q6 4 12 0" fill="none" stroke-width="4"/><circle cx="64" cy="46" r="4"/>', m: '<path d="M36 60 Q52 74 66 60" fill="none" stroke-width="4" stroke-linecap="round"/>' },
+      dead: { e: '<path d="M32 46 L42 46"/><path d="M58 46 L68 46"/>', m: '<path d="M38 66 L62 66" stroke-width="4" stroke-linecap="round"/>' },
+      money: { e: '<text x="36" y="52" font-size="16" text-anchor="middle" stroke="none">$</text><text x="64" y="52" font-size="16" text-anchor="middle" stroke="none">$</text>', m: '<path d="M34 60 Q50 76 66 60 Q50 66 34 60" stroke-width="3"/>' },
     };
     const f = F[mood] || F.chill;
-    return `<svg viewBox="0 0 100 100" class="face-svg" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="50" cy="50" r="40" fill="#FFD27D" stroke="#211C16" stroke-width="4"/>
-      <circle cx="30" cy="60" r="6" fill="#FF4D2E" opacity="0.35" stroke="none"/>
-      <circle cx="70" cy="60" r="6" fill="#FF4D2E" opacity="0.35" stroke="none"/>
-      <g fill="#211C16" stroke="#211C16">${f.eyes}${f.mouth}${f.extra || ''}</g>
-    </svg>`;
+    return `<svg viewBox="0 0 100 100" class="face-svg" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="#FFD27D" stroke="#211C16" stroke-width="4"/><circle cx="30" cy="60" r="6" fill="#FF4D2E" opacity=".35" stroke="none"/><circle cx="70" cy="60" r="6" fill="#FF4D2E" opacity=".35" stroke="none"/><g fill="#211C16" stroke="#211C16">${f.e}${f.m}${f.x || ''}</g></svg>`;
   }
 
-  // 由分段定义生成"档位数组"（前密后疏）。滑块走索引，落点永远是合理整数档。
-  function buildScale(q) {
-    const vals = [q.min];
-    let cur = q.min;
-    q.segments.forEach((seg) => {
-      while (cur < seg.to) {
-        cur = Math.round(cur + seg.step);
-        vals.push(cur);
-      }
-    });
-    return Array.from(new Set(vals)); // 去重
+  /* —— 滑块档位工具 —— */
+  function buildScale(q) { if (!q.seg) return null; const vals = [q.min]; let cur = q.min; q.seg.forEach(s => { while (cur < s.to) { cur = Math.round(cur + s.step); vals.push(cur); } }); return Array.from(new Set(vals)); }
+  function nearestIdx(scale, t) { let b = 0, d = Infinity; scale.forEach((v, i) => { const dd = Math.abs(v - t); if (dd < d) { d = dd; b = i; } }); return b; }
+  function getQuip(q, val) { const hit = q.quips.find(x => val <= x.u); return hit || { t: '', m: 'chill' }; }
+
+  /* ============================================================
+     页面渲染
+     ============================================================ */
+
+  /* —— intro —— */
+  function renderIntro() {
+    screen(`
+      <div class="rise d1"><h1 class="hero">几岁能<em>躺平</em>？<br>测测你的<br><em>理财人格</em></h1></div>
+      <p class="subtitle rise d2">${TOTAL} 题 · 约 90 秒 · 算出你几岁退休 + 送你一个搞笑人格码。<br>搞钱搞不动，那就先笑一个。</p>
+      <div class="rise d3" style="margin-top:auto;"><button class="btn coral" id="start">开测，看看我有多惨</button></div>
+      <p class="tiny rise d4">本测试只为博你一乐，数字基于复利模型测算，仅供参考。</p>
+    `);
+    document.getElementById('start').onclick = () => {
+      SFX.setOn(true); SFX.unlock(); SFX.play('start'); SFX.bgmStart();
+      state.stage = 'q'; state.idx = 0; go();
+    };
   }
 
-  // 找最接近 target 的档位索引
-  function nearestIndex(scale, target) {
-    let best = 0, diff = Infinity;
-    scale.forEach((v, idx) => {
-      const d = Math.abs(v - target);
-      if (d < diff) { diff = d; best = idx; }
-    });
-    return best;
-  }
-
-  /* ---------- 计算题（滑块，逐题）---------- */
-  function renderCalc() {
-    const i = state.calcIndex || 0;
-    const q = CALC_QUESTIONS[i];
-    const val = state.calc[q.key];
-    const fmt = (v) => (q.key === 'currentSavings' || q.unit === '元' ? Number(v).toLocaleString('zh-CN') : v);
-
-    // 两种滑块：分段档位(segments) vs 线性(min/max/step)
-    const scale = q.segments ? buildScale(q) : null;
-    const sliderAttrs = scale
-      ? `min="0" max="${scale.length - 1}" step="1" value="${nearestIndex(scale, val)}"`
-      : `min="${q.min}" max="${q.max}" step="${q.step}" value="${val}"`;
-
+  /* —— 计算题（滑块，小人上方）—— */
+  function renderCalc(item, i) {
+    const q = item.q, val = state.calc[q.key];
+    const fmt = (v) => (q.unit === '元' || q.unit === '元/月') ? Number(v).toLocaleString('zh-CN') : v;
+    const scale = buildScale(q);
+    const attrs = scale ? `min="0" max="${scale.length - 1}" step="1" value="${nearestIdx(scale, val)}"` : `min="${q.min}" max="${q.max}" step="${q.step}" value="${val}"`;
     const quip0 = getQuip(q, val);
-
-    root.innerHTML = `
-      ${brand()}
-      <div class="progress"><i style="width:${(i / TOTAL * 100).toFixed(0)}%"></i></div>
-      <div class="card reveal d1">
-        <div class="q-index">第 ${i + 1} 题 / ${TOTAL}</div>
-        <div class="q-scene">${q.label}</div>
+    screen(`
+      ${progressBar(i)}
+      <div class="rise d2"><div class="q-index">第 ${i + 1} 题 / ${TOTAL}</div><div class="q-scene">${q.label}</div></div>
+      <div class="rise d3">
+        <div class="talker"><div class="face" id="face">${faceSVG(quip0.m)}</div><div class="bubble" id="quip">${quip0.t}</div></div>
         <div class="slider-value"><span id="sv">${fmt(val)}</span><span class="u">${q.unit}</span></div>
-        <input type="range" id="rng" ${sliderAttrs}>
-        <div class="talker">
-          <div class="face" id="face">${faceSVG(quip0.mood)}</div>
-          <div class="bubble" id="quip">${quip0.text}</div>
-        </div>
+        <input type="range" id="rng" ${attrs}>
+      </div>
+      <div class="navbar rise d4">
+        ${i > 0 ? '<button class="btn ghost back" id="back">上一题</button>' : ''}
         <button class="btn coral" id="next">下一题</button>
       </div>
-    `;
-    const rng = document.getElementById('rng');
-    const sv = document.getElementById('sv');
-    const quip = document.getElementById('quip');
-    const face = document.getElementById('face');
-    let lastMood = quip0.mood;
+    `);
+    const rng = document.getElementById('rng'), sv = document.getElementById('sv'), quip = document.getElementById('quip'), face = document.getElementById('face');
+    let lastMood = quip0.m;
     rng.oninput = () => {
-      const v = scale ? scale[Number(rng.value)] : Number(rng.value);
-      state.calc[q.key] = v;
-      sv.textContent = fmt(v);
-      const nq = getQuip(q, v);
-      quip.textContent = nq.text;
-      if (nq.mood !== lastMood) {           // 表情变了才重画 + 抖一下
-        face.innerHTML = faceSVG(nq.mood);
-        face.classList.remove('pop'); void face.offsetWidth; face.classList.add('pop');
-        lastMood = nq.mood;
+      const v = scale ? scale[+rng.value] : +rng.value;
+      state.calc[q.key] = v; sv.textContent = fmt(v);
+      const nq = getQuip(q, v); quip.textContent = nq.t;
+      quip.classList.remove('swap'); void quip.offsetWidth; quip.classList.add('swap');
+      SFX.play('tick');
+      if (nq.m !== lastMood) {
+        face.innerHTML = faceSVG(nq.m); face.classList.remove('pop'); void face.offsetWidth; face.classList.add('pop');
+        SFX.play(['smug', 'wow', 'money', 'wink', 'chill'].includes(nq.m) ? 'moodUp' : 'moodDown');
+        lastMood = nq.m;
       }
     };
-    document.getElementById('next').onclick = () => {
-      if (i < CALC_QUESTIONS.length - 1) { state.calcIndex = i + 1; }
-      else { state.stage = 'personality'; state.pIndex = 0; }
-      render();
-    };
+    document.getElementById('next').onclick = () => { SFX.play('tap'); state.idx = i + 1; go(); };
+    if (i > 0) document.getElementById('back').onclick = () => { SFX.play('tap'); state.idx = i - 1; go(); };
   }
 
-  /* ---------- 性格题（选项，逐题）---------- */
-  function renderPersonality() {
-    const i = state.pIndex;
-    const list = PERSONALITY_QUESTIONS;
-    if (i >= list.length) { state.stage = 'loading'; return render(); }
-    const q = list[i];
-    const done = CALC_QUESTIONS.length + i;
-    const num = CALC_QUESTIONS.length + i + 1; // 接着计算题继续编号
-
-    root.innerHTML = `
-      ${brand()}
-      <div class="progress"><i style="width:${(done / TOTAL * 100).toFixed(0)}%"></i></div>
-      <div class="reveal d1">
-        <div class="q-index">${q.type === 'city' ? '最后一题' : `第 ${num} 题 / ${TOTAL}`}</div>
-        <div class="q-scene">${q.scene}</div>
+  /* —— 程度滑块题（5 档离散 + 实时回嘴）—— */
+  function renderScale(item, i) {
+    const q = item.q;
+    const saved = state.answers[q.id];
+    const startIdx = saved != null ? saved.stopIdx : 2;
+    const s0 = q.stops[startIdx];
+    screen(`
+      ${progressBar(i)}
+      <div class="rise d2"><div class="q-index">第 ${i + 1} 题 / ${TOTAL}</div><div class="q-scene">${q.scene}</div></div>
+      <div class="rise d3">
+        <div class="talker"><div class="face" id="face">${faceSVG(s0.m)}</div><div class="bubble" id="quip">${s0.t}</div></div>
+        <input type="range" id="rng" min="0" max="${q.stops.length - 1}" step="1" value="${startIdx}">
+        <div class="scale-ends"><span>${q.left}</span><span>${q.right}</span></div>
       </div>
-      <div id="opts"></div>
-    `;
+      <div class="navbar rise d4">
+        <button class="btn ghost back" id="back">上一题</button>
+        <button class="btn coral" id="next">下一题</button>
+      </div>
+    `);
+    const rng = document.getElementById('rng'), quip = document.getElementById('quip'), face = document.getElementById('face');
+    let lastMood = s0.m;
+    state.answers[q.id] = { stopIdx: startIdx, feed: q.stops[startIdx].feed };
+    rng.oninput = () => {
+      const k = +rng.value; const s = q.stops[k];
+      state.answers[q.id] = { stopIdx: k, feed: s.feed };
+      quip.textContent = s.t; quip.classList.remove('swap'); void quip.offsetWidth; quip.classList.add('swap');
+      SFX.play('tick');
+      if (s.m !== lastMood) {
+        face.innerHTML = faceSVG(s.m); face.classList.remove('pop'); void face.offsetWidth; face.classList.add('pop');
+        SFX.play(['smug', 'wow', 'money', 'wink', 'chill'].includes(s.m) ? 'moodUp' : 'moodDown');
+        lastMood = s.m;
+      }
+    };
+    document.getElementById('next').onclick = () => { SFX.play('tap'); state.idx = i + 1; go(); };
+    document.getElementById('back').onclick = () => { SFX.play('tap'); state.idx = i - 1; go(); };
+  }
+
+  /* —— 选择题（ABCD + 可回退 + 记已选）—— */
+  function renderChoice(item, i) {
+    const q = item.q;
+    const saved = state.answers[q.id];
+    const tags = ['A', 'B', 'C', 'D', 'E', 'F'];
+    screen(`
+      ${progressBar(i)}
+      <div class="rise d2"><div class="q-index">${item.isCity ? '最后一题' : `第 ${i + 1} 题 / ${TOTAL}`}</div><div class="q-scene">${q.scene}</div></div>
+      <div class="rise d3" id="opts"></div>
+      <div class="navbar rise d4">
+        <button class="btn ghost back" id="back">上一题</button>
+        <button class="btn coral" id="next" ${saved == null ? 'disabled' : ''}>${item.isCity ? '看结果' : '下一题'}</button>
+      </div>
+    `);
     const opts = document.getElementById('opts');
     q.options.forEach((opt, k) => {
       const b = document.createElement('button');
-      b.className = 'option reveal d' + Math.min(5, k + 2);
-      b.textContent = opt.text;
+      b.className = 'option' + (saved && saved.k === k ? ' chosen' : '');
+      b.innerHTML = `<span class="tag">${tags[k]}</span><span>${opt.text}</span>`;
       b.onclick = () => {
-        state.pAnswers.push({ id: q.id, feed: opt.feed });
-        state.pIndex = i + 1;
-        render();
+        state.answers[q.id] = { k, feed: opt.feed };
+        opts.querySelectorAll('.option').forEach(o => o.classList.remove('chosen'));
+        b.classList.add('chosen');
+        document.getElementById('next').disabled = false;
+        SFX.play('select');
       };
       opts.appendChild(b);
     });
+    document.getElementById('next').onclick = () => {
+      if (state.answers[q.id] == null) return;
+      SFX.play('tap'); state.idx = i + 1; go();
+    };
+    document.getElementById('back').onclick = () => { SFX.play('tap'); state.idx = i - 1; go(); };
   }
 
-  /* ---------- 加载页（仪式感 + 未来广告位）---------- */
-  const LOADING_LINES = ['正在分析你的财务DNA…', '正在偷看你的钱包…', '正在计算你离躺平还有多远…'];
+  /* —— 加载 —— */
+  const LOAD = ['正在分析你的财务DNA…', '正在偷看你的钱包…', '正在计算你离躺平还有多远…'];
   function renderLoading() {
-    let n = 0;
-    root.innerHTML = `
-      ${brand()}
-      <div class="loading">
-        <div class="spinner"></div>
-        <div class="dna" id="dna">${LOADING_LINES[0]}</div>
-        <div class="hint">（此处未来可放一个广告位）</div>
-      </div>`;
-    const el = document.getElementById('dna');
-    const t = setInterval(() => { n = (n + 1) % LOADING_LINES.length; if (el) el.textContent = LOADING_LINES[n]; }, 750);
+    screen(`<div class="loading"><div class="spinner"></div><div class="dna" id="dna">${LOAD[0]}</div><div class="hint">（此处未来可放一个广告位）</div></div>`);
+    let n = 0; const el = document.getElementById('dna');
+    const t = setInterval(() => { n = (n + 1) % LOAD.length; if (el) el.textContent = LOAD[n]; }, 700);
     setTimeout(() => {
       clearInterval(t);
       state.result = window.QGEngine.analyze(state.calc);
       state.stage = 'result';
-      render();
-    }, 2200);
+      SFX.play('fanfare');
+      go();
+    }, 2000);
   }
 
-  /* ---------- 雷达图（手绘 SVG，四维）---------- */
-  function radarSVG(scores) {
-    const labels = [
-      { k: 'start', name: '时间本钱' },
-      { k: 'save', name: '管手能力' },
-      { k: 'principal', name: '起跑线' },
-      { k: 'desire', name: '胃口大小' },
-    ];
-    const cx = 140, cy = 140, R = 100;
-    const pt = (idx, r) => {
-      const ang = -Math.PI / 2 + (idx * 2 * Math.PI) / 4;
-      return [cx + Math.cos(ang) * r, cy + Math.sin(ang) * r];
-    };
-    let grid = '';
-    [0.33, 0.66, 1].forEach((g) => {
-      const p = labels.map((_, idx) => pt(idx, R * g).join(',')).join(' ');
-      grid += `<polygon points="${p}" fill="none" stroke="#211C16" stroke-opacity="0.18" stroke-width="1.5"/>`;
-    });
-    const poly = labels.map((l, idx) => pt(idx, R * scores[l.k]).join(',')).join(' ');
-    let axes = '', text = '';
-    labels.forEach((l, idx) => {
-      const [x, y] = pt(idx, R);
-      axes += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#211C16" stroke-opacity="0.18" stroke-width="1.5"/>`;
-      const [lx, ly] = pt(idx, R + 22);
-      text += `<text x="${lx}" y="${ly}" font-size="13" fill="#211C16" text-anchor="middle" dominant-baseline="middle" font-family="var(--display)">${l.name}</text>`;
-    });
-    return `<svg width="280" height="280" viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
-      ${grid}${axes}
-      <polygon points="${poly}" fill="#FF4D2E" fill-opacity="0.35" stroke="#FF4D2E" stroke-width="2.5"/>
-      ${text}
-    </svg>`;
+  /* —— 雷达图 —— */
+  function radarSVG(s) {
+    const labels = [{ k: 'start', n: '起步' }, { k: 'save', n: '储蓄' }, { k: 'principal', n: '本金' }, { k: 'desire', n: '物欲' }];
+    const cx = 110, cy = 110, R = 78;
+    const pt = (idx, r) => { const a = -Math.PI / 2 + idx * 2 * Math.PI / 4; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
+    let grid = ''; [0.33, 0.66, 1].forEach(g => { const p = labels.map((_, idx) => pt(idx, R * g).join(',')).join(' '); grid += `<polygon points="${p}" fill="none" stroke="#211C16" stroke-opacity=".18" stroke-width="1.5"/>`; });
+    const poly = labels.map((l, idx) => pt(idx, R * s[l.k]).join(',')).join(' ');
+    let axes = '', text = ''; labels.forEach((l, idx) => { const [x, y] = pt(idx, R); axes += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#211C16" stroke-opacity=".18" stroke-width="1.5"/>`; const [lx, ly] = pt(idx, R + 18); text += `<text x="${lx}" y="${ly}" font-size="13" fill="#211C16" text-anchor="middle" dominant-baseline="middle" font-family="var(--display)">${l.n}</text>`; });
+    return `<svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">${grid}${axes}<polygon points="${poly}" fill="#FF4D2E" fill-opacity=".35" stroke="#FF4D2E" stroke-width="2.5"/>${text}</svg>`;
   }
 
-  /* ---------- 人格 emoji（16 型各配一个）---------- */
-  const TYPE_EMOJI = {
-    ERMH:'🔨', ERMS:'😴', ERBH:'💪', ERBS:'🧘',
-    ECMH:'🔥', ECMS:'💸', ECBH:'🎰', ECBS:'👑',
-    LRMH:'🏃', LRMS:'🎣', LRBH:'🐹', LRBS:'🌵',
-    LCMH:'🎫', LCMS:'🛍️', LCBH:'📝', LCBS:'🍜',
-  };
+  const TYPE_EMOJI = { ERMH: '🔨', ERMS: '😴', ERBH: '💪', ERBS: '🧘', ECMH: '🔥', ECMS: '💸', ECBH: '🎰', ECBS: '👑', LRMH: '🏃', LRMS: '🎣', LRBH: '🐹', LRBS: '🌵', LCMH: '🎫', LCMS: '🛍️', LCBH: '📝', LCBS: '🍜' };
+  function fallbackPersona(code) { return { title: code + ' 型', subtitle: '文案待填', quote: '（金句待填）', reading: '解读待填。', blindspot: '盲点待填。', twist: '反转待填。', match: { code: '----', line: '最佳搭档待填' }, hook: '想躺得更安心一点？哪天有空，来鑫芽随便逛逛就好。' }; }
 
-  /* ---------- 数字话术（举重若轻，不施压）---------- */
-  function numbersBlock(res) {
-    const r = res.retirement;
-    const ageTxt = isFinite(r.achievableRetireAge)
-      ? `${Math.round(r.achievableRetireAge)}<span class="u" style="font-size:14px">岁</span>`
-      : `再想想<span class="u" style="font-size:14px"></span>`;
-    const saveTxt = isFinite(r.monthlySaveNeeded)
-      ? `${r.monthlySaveNeeded.toLocaleString('zh-CN')}`
-      : '随缘';
-    return `
-      <div class="numbers">
-        <div class="num-box"><div class="n">${ageTxt}</div><div class="l">照这个存法<br>大约能躺平喝咖啡☕</div></div>
-        <div class="num-box"><div class="n">${saveTxt}</div><div class="l">想按时退休<br>每月该存(元)</div></div>
-      </div>`;
-  }
-
-  /* ---------- 结果页 ---------- */
-  function fallbackPersona(code) {
-    return {
-      title: `${code} 型（文案待填）`,
-      quote: '（金句待 DeepSeek 填）',
-      reading: `这一型（${code}）的解读还没写。DeepSeek 请在 content.js 的 PERSONALITIES 里补上这个 key。`,
-      blindspot: '（盲点待填）',
-      twist: '（反转/给暖待填）',
-      match: { code: '----', line: '（最佳搭档待填）' },
-      hook: '想躺得更安心点？有空来鑫芽逛逛。',
-    };
-  }
+  /* —— 结果页（含收益率 2/10 对比）—— */
   function renderResult() {
-    const res = state.result;
-    const code = res.dimensions.code;
+    const r = state.result; const code = r.dimensions.code;
     const p = PERSONALITIES[code] || fallbackPersona(code);
     const emoji = TYPE_EMOJI[code] || '💡';
-    // 从性格题答案中取城市名
-    const cityFeed = state.pAnswers.find(a => a.feed && a.feed.startsWith('city:'))?.feed;
-    const cityName = cityFeed ? cityFeed.split(':')[1] : '你的城市';
+    const cityFeed = state.answers['city'] && state.answers['city'].feed;
+    const cityName = cityFeed ? cityFeed.replace('city:', '') : '你的城市';
+    const ageTxt = (a) => isFinite(a) ? Math.round(a) + '<span class="u">岁</span>' : '再想想';
+    const need = (x) => isFinite(x) ? x.toLocaleString('zh-CN') : '随缘';
 
-    root.innerHTML = `
-      ${brand()}
-      <div class="result-hero reveal d1">
-        <div class="result-badge">${code.split('').join('  ')}</div>
-        <h2 class="result-title">${emoji}&nbsp;${p.title}</h2>
-        ${p.subtitle ? `<div class="result-subtitle">${p.subtitle}</div>` : ''}
+    screen(`
+      <div class="result-hero rise d1"><div class="result-badge">${code.split('').join(' ')}</div></div>
+      <h2 class="result-title rise d1">${emoji}&nbsp;${p.title}</h2>
+      <div class="result-subtitle rise d1">${p.subtitle}</div>
+      <div class="result-quote rise d2">${p.quote}</div>
+
+      <div class="rank-banner rise d2">在<b>${cityName}</b>，你的退休速度打败了 <b id="rankPct">0%</b> 的人 🏙️</div>
+
+      <div class="compare rise d3">
+        <div class="compare-tabs">
+          <button class="compare-tab active" data-m="bank">只存银行</button>
+          <button class="compare-tab" data-m="invest">合理理财</button>
+        </div>
+        <div class="compare-body" id="cmpBody">
+          <div class="big" id="cmpBig">${ageTxt(r.r2)}</div>
+          <div class="cap" id="cmpCap">按只存银行（假设年化2%），照这个存法大约能躺平的年纪</div>
+        </div>
+      </div>
+      <p class="compare-note rise d3">假设年化收益率，非任何投资建议或收益承诺。</p>
+
+      <div class="numbers rise d3">
+        <div class="num-box"><div class="n">${need(r.need10)}</div><div class="l">合理理财下<br>每月该存(元)</div></div>
+        <div class="num-box"><div class="n">${need(r.need2)}</div><div class="l">只存银行下<br>每月该存(元)</div></div>
       </div>
 
-      <div class="result-quote reveal d2">${p.quote}</div>
+      <div class="radar-wrap rise d4">${radarSVG(r.dimensions.scores)}</div>
 
-      <div class="rank-banner reveal d2">在<b>${cityName}</b>，你的退休速度打败了 <b>${res.cityPercentile}%</b> 的人 🏙️</div>
+      <div class="insight-card reading rise d4"><div class="section-h">📖 人格剖析</div><div class="reading-text">${p.reading}</div></div>
+      <div class="insight-card blindspot rise d5"><div class="section-h">🎯 你的盲点</div><div class="reading-text">${p.blindspot}</div></div>
+      <div class="insight-card twist rise d5"><div class="section-h">🫂 但是吧……</div><div class="reading-text">${p.twist}</div></div>
+      <div class="match-card rise d5"><b>${p.match.code}</b>&nbsp;·&nbsp;${p.match.line}</div>
+      <div class="hook-box rise d6">${p.hook}</div>
 
-      ${numbersBlock(res)}
-
-      <div class="radar-wrap reveal d3">${radarSVG(res.dimensions.scores)}</div>
-
-      <div class="insight-card reading reveal d3">
-        <div class="section-h">📖 人格剖析</div>
-        <div class="reading-text">${p.reading}</div>
-      </div>
-      <div class="insight-card blindspot reveal d4">
-        <div class="section-h">🎯 你的盲点</div>
-        <div class="reading-text">${p.blindspot}</div>
-      </div>
-      <div class="insight-card twist reveal d4">
-        <div class="section-h">🫂 但是吧……</div>
-        <div class="reading-text">${p.twist}</div>
-      </div>
-
-      <div class="match-card reveal d5"><b>${p.match.code}</b>&nbsp;·&nbsp;${p.match.line}</div>
-
-      <div class="hook-box reveal d5">${p.hook}</div>
-
-      <div class="foot-actions reveal d5" id="footActions"></div>
+      <div class="foot-actions rise d6" id="footActions"></div>
       <p class="tiny">数字基于复利模型和你的关键数据测算，仅供娱乐参考。</p>
       <canvas id="cardCanvas" width="900" height="1400" style="display:none"></canvas>
-    `;
+    `);
+
+    // 收益率切换
+    const tabs = root.querySelectorAll('.compare-tab');
+    const big = document.getElementById('cmpBig'), cap = document.getElementById('cmpCap'), body = document.getElementById('cmpBody');
+    tabs.forEach(tab => tab.onclick = () => {
+      SFX.play('flip');
+      tabs.forEach(t => t.classList.remove('active')); tab.classList.add('active');
+      if (tab.dataset.m === 'bank') { big.innerHTML = ageTxt(r.r2); cap.textContent = '按只存银行（假设年化2%），照这个存法大约能躺平的年纪'; }
+      else { big.innerHTML = ageTxt(r.r10); cap.textContent = '按合理理财（假设年化10%），照这个存法大约能躺平的年纪'; }
+      body.classList.remove('flip'); void body.offsetWidth; body.classList.add('flip');
+    });
+
+    // 排名数字跳动
+    const rankEl = document.getElementById('rankPct');
+    if (rankEl) {
+      const target = r.cityPercentile; let cur = 0;
+      const step = Math.max(1, Math.round(target / 24));
+      const ti = setInterval(() => { cur += step; if (cur >= target) { cur = target; clearInterval(ti); } rankEl.textContent = cur + '%'; SFX.play('countTick'); }, 36);
+    }
+
+    // 底部按钮
     const fa = document.getElementById('footActions');
     if (state.shared) {
       fa.innerHTML = `<button class="btn coral" id="goTest">测测我是哪种 →</button>`;
@@ -341,128 +367,99 @@
     } else {
       fa.innerHTML = `<button class="btn coral" id="save">保存我的结果图，去晒</button>
         <button class="btn" id="shareBtn">复制分享链接</button>
-        <button class="btn" id="restart">重测一次</button>`;
-      document.getElementById('restart').onclick = () => location.reload();
-      document.getElementById('save').onclick = () => buildShareCard(res, p);
+        <button class="btn ghost" id="restart">重测一次</button>`;
+      document.getElementById('restart').onclick = () => { SFX.play('tap'); state.stage = 'intro'; state.idx = 0; state.answers = {}; CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default); go(); };
+      document.getElementById('save').onclick = () => { SFX.play('press'); buildShareCard(r, p); };
       document.getElementById('shareBtn').onclick = () => {
-        const link = location.origin + location.pathname + '?r=' + encodeResult(res);
-        navigator.clipboard.writeText(link).then(() => {
-          const b = document.getElementById('shareBtn'); b.textContent = '已复制！发给朋友吧'; setTimeout(() => { b.textContent = '复制分享链接'; }, 2000);
-        }).catch(() => { prompt('复制这个链接发给朋友：', link); });
+        const link = location.origin + location.pathname + '?r=' + encodeResult(r);
+        navigator.clipboard.writeText(link).then(() => { const b = document.getElementById('shareBtn'); b.textContent = '已复制！发给朋友吧'; setTimeout(() => { b.textContent = '复制分享链接'; }, 2000); }).catch(() => { prompt('复制这个链接发给朋友：', link); });
       };
     }
   }
 
-  /* ---------- 结果图（canvas → 长按保存，微信/桌面端通用）---------- */
+  /* ============================================================
+     分享图（canvas，长按保存）
+     ============================================================ */
   async function buildShareCard(res, p) {
     try {
-    const c = document.getElementById('cardCanvas');
-    const ctx = c.getContext('2d');
-    const W = c.width, H = c.height;
-    // 等字体就绪（超时 800ms 防止卡死）
-    if (document.fonts && document.fonts.ready) {
-      try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]); } catch (_) {}
-    }
-    // 底
-    ctx.fillStyle = '#F2E9D8'; ctx.fillRect(0, 0, W, H);
-    // 边框
-    ctx.strokeStyle = '#211C16'; ctx.lineWidth = 10; ctx.strokeRect(34, 34, W - 68, H - 68);
-    ctx.fillStyle = '#211C16';
-    ctx.textAlign = 'center';
-    const F = (size, weight = '700') => `${weight} ${size}px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif`;
+      const c = document.getElementById('cardCanvas');
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      if (document.fonts && document.fonts.ready) {
+        try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]); } catch (_) { }
+      }
+      ctx.fillStyle = '#F2E9D8'; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 10; ctx.strokeRect(34, 34, W - 68, H - 68);
+      ctx.fillStyle = '#211C16'; ctx.textAlign = 'center';
+      const F = (size, weight = '700') => `${weight} ${size}px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif`;
 
-    // logo
-    ctx.font = F(36, '900'); ctx.fillStyle = '#FF4D2E'; ctx.fillText('$ 钱格测试', W / 2, 110);
-    // code
-    ctx.font = F(36, '700'); ctx.fillStyle = '#2E7D6B'; ctx.fillText(res.dimensions.code.split('').join('  '), W / 2, 200);
-    // title（56px + 宽边距，防长称号溢出）
-    ctx.font = F(56, '900'); ctx.fillStyle = '#211C16';
-    wrapText(ctx, p.title, W / 2, 300, W - 200, 64);
-    // rank
-    ctx.fillStyle = '#E8A33D'; roundRect(ctx, 90, 440, W - 180, 110, 24); ctx.fill();
-    ctx.strokeStyle = '#211C16'; ctx.lineWidth = 6; roundRect(ctx, 90, 440, W - 180, 110, 24); ctx.stroke();
-    ctx.fillStyle = '#211C16'; ctx.font = F(30, '700');
-    const cityFeed2 = state.pAnswers.find(a => a.feed && a.feed.startsWith('city:'))?.feed;
-    const cityName2 = cityFeed2 ? cityFeed2.split(':')[1] : '同城';
-    ctx.fillText(`退休速度打败了${cityName2}`, W / 2, 490);
-    ctx.fillStyle = '#FF4D2E'; ctx.font = F(48, '900');
-    ctx.fillText(`${res.cityPercentile}% 的人 🏙️`, W / 2, 535);
-    // numbers
-    const age = isFinite(res.retirement.achievableRetireAge) ? Math.round(res.retirement.achievableRetireAge) + ' 岁' : '再想想';
-    ctx.fillStyle = '#211C16'; ctx.font = F(26, '700'); ctx.fillText('照这个存法，大约能躺平的年纪', W / 2, 640);
-    ctx.fillStyle = '#FF4D2E'; ctx.font = F(84, '900'); ctx.fillText(age, W / 2, 730);
-    // quote（28px + 更宽边距）
-    ctx.fillStyle = '#211C16'; ctx.font = F(26, '400');
-    wrapText(ctx, p.quote, W / 2, 860, W - 140, 42);
+      ctx.font = F(36, '900'); ctx.fillStyle = '#FF4D2E'; ctx.fillText('$ 钱格测试', W / 2, 110);
+      ctx.font = F(36, '700'); ctx.fillStyle = '#2E7D6B'; ctx.fillText(res.dimensions.code.split('').join('  '), W / 2, 200);
+      ctx.font = F(56, '900'); ctx.fillStyle = '#211C16';
+      wrapText(ctx, p.title, W / 2, 300, W - 200, 64);
+      ctx.fillStyle = '#E8A33D'; roundRect(ctx, 90, 440, W - 180, 110, 24); ctx.fill();
+      ctx.strokeStyle = '#211C16'; ctx.lineWidth = 6; roundRect(ctx, 90, 440, W - 180, 110, 24); ctx.stroke();
+      ctx.fillStyle = '#211C16'; ctx.font = F(30, '700');
+      const cityFeed2 = state.answers['city'] && state.answers['city'].feed;
+      const cityName2 = cityFeed2 ? cityFeed2.replace('city:', '') : '同城';
+      ctx.fillText(`退休速度打败了${cityName2}`, W / 2, 490);
+      ctx.fillStyle = '#FF4D2E'; ctx.font = F(48, '900');
+      ctx.fillText(`${res.cityPercentile}% 的人 🏙️`, W / 2, 535);
+      const age = isFinite(res.retirement.achievableRetireAge) ? Math.round(res.retirement.achievableRetireAge) + ' 岁' : '再想想';
+      ctx.fillStyle = '#211C16'; ctx.font = F(26, '700'); ctx.fillText('照这个存法，大约能躺平的年纪', W / 2, 640);
+      ctx.fillStyle = '#FF4D2E'; ctx.font = F(84, '900'); ctx.fillText(age, W / 2, 730);
+      ctx.fillStyle = '#211C16'; ctx.font = F(26, '400');
+      wrapText(ctx, p.quote, W / 2, 860, W - 140, 42);
 
-    // QR 码（动态从 API 加载，扫码复现同一份结果）
-    const shareURL = location.origin + location.pathname + '?r=' + encodeResult(res);
-    const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(shareURL);
-    try {
-      const qrImg = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('QR load fail'));
-        img.src = qrURL;
-      });
-      ctx.drawImage(qrImg, W / 2 - 80, H - 260, 160, 160);
-      ctx.fillStyle = '#5A5247'; ctx.font = F(20, '400');
-      ctx.fillText('长按扫码，测测你是哪种快乐的穷鬼', W / 2, H - 74);
-    } catch (_) {
-      // QR 加载失败 → 只放文字链接，不崩
-      ctx.fillStyle = '#5A5247'; ctx.font = F(20, '400');
-      ctx.fillText('长按扫码测测你是哪种快乐的穷鬼', W / 2, H - 110);
-      ctx.fillText(shareURL, W / 2, H - 74);
-    }
-
-    showSavableImage(c.toDataURL('image/png'));
+      const shareURL = location.origin + location.pathname + '?r=' + encodeResult(res);
+      const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(shareURL);
+      try {
+        const qrImg = await new Promise((resolve, reject) => {
+          const img = new Image(); img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img); img.onerror = () => reject(new Error('QR load fail'));
+          img.src = qrURL;
+        });
+        ctx.drawImage(qrImg, W / 2 - 80, H - 260, 160, 160);
+        ctx.fillStyle = '#5A5247'; ctx.font = F(20, '400');
+        ctx.fillText('长按扫码，测测你是哪种快乐的穷鬼', W / 2, H - 74);
+      } catch (_) {
+        ctx.fillStyle = '#5A5247'; ctx.font = F(20, '400');
+        ctx.fillText('长按扫码测测你是哪种快乐的穷鬼', W / 2, H - 110);
+        ctx.fillText(shareURL, W / 2, H - 74);
+      }
+      showSavableImage(c.toDataURL('image/png'));
     } catch (e) { alert('生成图片失败，请重试一次：' + e.message); }
   }
-
-  /* ---------- 长按保存覆盖层（微信/移动端触发系统"保存图片"）---------- */
   function showSavableImage(dataURL) {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow:auto;';
-    ov.innerHTML = `<p style="color:#fff;font-size:15px;margin:0 0 12px;text-align:center;">长按图片保存到相册 👇</p>
-      <img src="${dataURL}" style="max-width:100%;max-height:78vh;border-radius:12px;">
-      <button style="margin-top:16px;padding:10px 22px;border:0;border-radius:24px;font-size:15px;">关闭</button>`;
+    ov.innerHTML = `<p style="color:#fff;font-size:15px;margin:0 0 12px;text-align:center;">长按图片保存到相册 👇</p><img src="${dataURL}" style="max-width:100%;max-height:78vh;border-radius:12px;"><button style="margin-top:16px;padding:10px 22px;border:0;border-radius:24px;font-size:15px;">关闭</button>`;
     ov.querySelector('button').onclick = () => ov.remove();
     ov.onclick = e => { if (e.target === ov) ov.remove(); };
     document.body.appendChild(ov);
   }
-  function wrapText(ctx, text, x, y, maxW, lh) {
-    const chars = text.split(''); let line = '', yy = y;
-    for (const ch of chars) {
-      if (ctx.measureText(line + ch).width > maxW && line) { ctx.fillText(line, x, yy); line = ch; yy += lh; }
-      else line += ch;
-    }
-    ctx.fillText(line, x, yy);
-  }
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  function wrapText(ctx, text, x, y, maxW, lh) { const chars = text.split(''); let line = '', yy = y; for (const ch of chars) { if (ctx.measureText(line + ch).width > maxW && line) { ctx.fillText(line, x, yy); line = ch; yy += lh; } else line += ch; } ctx.fillText(line, x, yy); }
+  function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+  /* ============================================================
+     路由 + 转场
+     ============================================================ */
+  function go() {
+    transition(() => {
+      if (state.stage === 'intro') return renderIntro();
+      if (state.stage === 'result') return renderResult();
+      if (state.idx >= FLOW.length) { state.stage = 'loading'; return renderLoading(); }
+      const item = FLOW[state.idx];
+      if (item.kind === 'calc') return renderCalc(item, state.idx);
+      if (item.kind === 'scale') return renderScale(item, state.idx);
+      if (item.kind === 'choice') return renderChoice(item, state.idx);
+    });
   }
 
-  /* ---------- 路由 ---------- */
-  function render() {
-    switch (state.stage) {
-      case 'intro': return renderIntro();
-      case 'calc': return renderCalc();
-      case 'personality': return renderPersonality();
-      case 'loading': return renderLoading();
-      case 'result': return renderResult();
-    }
-  }
+  // 启动：读分享链接
   const sp = new URLSearchParams(location.search);
   if (sp.has('r')) {
-    try {
-      state.result = decodeResult(sp.get('r'));
-      state.shared = true;
-      state.stage = 'result';
-    } catch (e) { /* 坏链接就当没有，正常进首页 */ }
+    try { state.result = decodeResult(sp.get('r')); state.shared = true; state.stage = 'result'; } catch (e) { /* 坏链接进首页 */ }
   }
-  render();
+  go();
 })();

@@ -161,12 +161,51 @@ function computeRanking(retirementResult) {
   return pct;
 }
 
+/* ---------- 双收益率：按给定年化算退休年龄/每月该存 ---------- */
+function retireAgeAt(inputs, annualReturn) {
+  const { currentAge, monthlyRetireSpend, monthlySave, currentSavings } = inputs;
+  const mr = annualReturn / 12;
+  const target = (monthlyRetireSpend * 12) / CONFIG.withdrawalRate;
+  const fv = (n) =>
+    currentSavings * Math.pow(1 + mr, n) +
+    (mr === 0 ? monthlySave * n : monthlySave * ((Math.pow(1 + mr, n) - 1) / mr));
+  const maxAge = 100;
+  for (let n = 0; n <= (maxAge - currentAge) * 12; n++) {
+    if (fv(n) >= target) return currentAge + n / 12;
+  }
+  return Infinity;
+}
+function monthlyNeededAt(inputs, annualReturn) {
+  const { currentAge, retireAge, monthlyRetireSpend, currentSavings } = inputs;
+  const mr = annualReturn / 12;
+  const target = (monthlyRetireSpend * 12) / CONFIG.withdrawalRate;
+  const n = Math.max(0, (retireAge - currentAge) * 12);
+  const fromP = currentSavings * Math.pow(1 + mr, n);
+  if (fromP >= target) return 0;
+  const af = mr === 0 ? n : (Math.pow(1 + mr, n) - 1) / mr;
+  return af > 0 ? (target - fromP) / af : Infinity;
+}
+
 /* ---------- 一次性算全部，给 UI 用 ---------- */
 function analyze(inputs) {
   const retirement = computeRetirement(inputs);
   const dimensions = computeDimensions(inputs);
-  const cityPercentile = computeRanking(retirement);
-  return { inputs, retirement, dimensions, cityPercentile };
+  // 排名按合理理财(10%)算，给人希望
+  const r10 = retireAgeAt(inputs, 0.10);
+  const ageForRank = isFinite(r10) ? r10 : CONFIG.ranking.baselineRetireAge + 32;
+  const z = (CONFIG.ranking.baselineRetireAge - ageForRank) / CONFIG.ranking.spreadYears;
+  let pct = Math.round(normalCDF(z) * 100);
+  pct = Math.max(12, Math.min(96, pct));
+  return {
+    inputs,
+    retirement,
+    dimensions,
+    cityPercentile: pct,
+    r2: retireAgeAt(inputs, 0.02),
+    r10,
+    need2: monthlyNeededAt(inputs, 0.02),
+    need10: monthlyNeededAt(inputs, 0.10),
+  };
 }
 
 window.QGEngine = { analyze, computeRetirement, computeDimensions, computeRanking, CONFIG };

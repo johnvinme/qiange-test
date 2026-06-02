@@ -229,7 +229,6 @@ const PERSONALITY_QUESTIONS = [
     ],
   },
 
-  // ===== 纯彩蛋题 =====
   {
     id: 'q12',
     scene: '刷到朋友圈有人提了新车/晒了新家，你？',
