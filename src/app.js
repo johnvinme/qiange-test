@@ -131,9 +131,9 @@
   }
 
   /* —— 滑块档位工具 —— */
-  function buildScale(q) { if (!q.seg) return null; const vals = [q.min]; let cur = q.min; q.seg.forEach(s => { while (cur < s.to) { cur = Math.round(cur + s.step); vals.push(cur); } }); return Array.from(new Set(vals)); }
+  function buildScale(q) { if (!q.segments) return null; const vals = [q.min]; let cur = q.min; q.segments.forEach(s => { while (cur < s.to) { cur = Math.round(cur + s.step); vals.push(cur); } }); return Array.from(new Set(vals)); }
   function nearestIdx(scale, t) { let b = 0, d = Infinity; scale.forEach((v, i) => { const dd = Math.abs(v - t); if (dd < d) { d = dd; b = i; } }); return b; }
-  function getQuip(q, val) { const hit = q.quips.find(x => val <= x.u); return hit || { t: '', m: 'chill' }; }
+  function getQuip(q, val) { const hit = q.quips.find(x => val <= x.upTo); return hit || { text: '', mood: 'chill' }; }
 
   /* ============================================================
      页面渲染
@@ -164,7 +164,7 @@
       ${progressBar(i)}
       <div class="rise d2"><div class="q-index">第 ${i + 1} 题 / ${TOTAL}</div><div class="q-scene">${q.label}</div></div>
       <div class="rise d3">
-        <div class="talker"><div class="face" id="face">${faceSVG(quip0.m)}</div><div class="bubble" id="quip">${quip0.t}</div></div>
+        <div class="talker"><div class="face" id="face">${faceSVG(quip0.mood)}</div><div class="bubble" id="quip">${quip0.text}</div></div>
         <div class="slider-value"><span id="sv">${fmt(val)}</span><span class="u">${q.unit}</span></div>
         <input type="range" id="rng" ${attrs}>
       </div>
@@ -174,17 +174,17 @@
       </div>
     `);
     const rng = document.getElementById('rng'), sv = document.getElementById('sv'), quip = document.getElementById('quip'), face = document.getElementById('face');
-    let lastMood = quip0.m;
+    let lastMood = quip0.mood;
     rng.oninput = () => {
       const v = scale ? scale[+rng.value] : +rng.value;
       state.calc[q.key] = v; sv.textContent = fmt(v);
-      const nq = getQuip(q, v); quip.textContent = nq.t;
+      const nq = getQuip(q, v); quip.textContent = nq.text;
       quip.classList.remove('swap'); void quip.offsetWidth; quip.classList.add('swap');
       SFX.play('tick');
-      if (nq.m !== lastMood) {
-        face.innerHTML = faceSVG(nq.m); face.classList.remove('pop'); void face.offsetWidth; face.classList.add('pop');
-        SFX.play(['smug', 'wow', 'money', 'wink', 'chill'].includes(nq.m) ? 'moodUp' : 'moodDown');
-        lastMood = nq.m;
+      if (nq.mood !== lastMood) {
+        face.innerHTML = faceSVG(nq.mood); face.classList.remove('pop'); void face.offsetWidth; face.classList.add('pop');
+        SFX.play(['smug', 'wow', 'money', 'wink', 'chill'].includes(nq.mood) ? 'moodUp' : 'moodDown');
+        lastMood = nq.mood;
       }
     };
     document.getElementById('next').onclick = () => { SFX.play('tap'); state.idx = i + 1; go(); };
