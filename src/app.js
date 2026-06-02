@@ -105,7 +105,7 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div id="danmaku-layer"></div><div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);
@@ -154,9 +154,46 @@
     `);
     document.getElementById('start').onclick = () => {
       SFX.setOn(true); SFX.unlock(); SFX.play('start'); SFX.bgmStart();
+      danmakuStart();
       state.stage = 'q'; state.idx = 0; go();
     };
   }
+
+  /* ============================================================
+     弹幕引擎 —— 预制毒舌弹幕，答题时从右飘到左
+     ============================================================ */
+  const DANMAKU_POOL = [
+    '上个月也是这么说的', '存钱？下个月一定', '这个选项是在暗示我穷吗',
+    '笑死，根本不知道选哪个', '花呗：该来的总会来的', '余额：你礼貌吗',
+    '我妈看到会说"你看吧"', '假装在认真思考', '选C！不选A！反正都是错的',
+    '这题我做过——我是说上一轮', '有人已经测出了吃土圣体', '你的存款正在远程嘲笑你',
+    '奶茶钱省一省，退休早一年', '别想了，你心里已经有答案了', '正在偷看别人的答案…',
+    '有人选了跟你一样的选项并穷着', '理财第一步：打开这个测试', '当你看到这条弹幕时钱又少了',
+    '填空题最难的是面对真实的自己', '加油，离退休又近了一道题', '搞钱搞不动，弹幕先飘一会儿',
+    '基金绿了，弹幕也绿了（并没有）','有人边吃外卖边做这个测试', '这题我选D——D是哪个来着',
+    '测完发朋友圈的都是勇士', '前面那个选A的等等我', '弹幕比题目有意思系列',
+    '大数据告诉我你是个月光', '已有人分享结果并获得"你疯了吧"评论', '钱格测试，测完更焦虑（开玩笑的）',
+  ];
+  let danmakuTimer = null;
+  function danmakuStart() {
+    const layer = document.getElementById('danmaku-layer');
+    if (!layer || danmakuTimer) return;
+    const spawn = () => {
+      if (state.stage === 'intro' || state.stage === 'loading') return;
+      const el = document.createElement('div');
+      const cls = Math.random() < 0.2 ? 'accent' : (Math.random() < 0.15 ? 'gold' : '');
+      el.className = 'danmaku ' + cls;
+      el.textContent = DANMAKU_POOL[Math.floor(Math.random() * DANMAKU_POOL.length)];
+      el.style.top = (8 + Math.random() * 82) + '%';
+      el.style.animationDuration = (7 + Math.random() * 8) + 's';
+      el.style.fontSize = (13 + Math.random() * 6) + 'px';
+      layer.appendChild(el);
+      el.addEventListener('animationend', () => el.remove());
+    };
+    spawn();
+    danmakuTimer = setInterval(spawn, 1400 + Math.random() * 1600);
+  }
+  function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } }
 
   /* —— 计算题（滑块，小人上方）—— */
   function renderCalc(item, i) {

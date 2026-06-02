@@ -169,3 +169,25 @@ input[type=range]::-moz-range-thumb{ width:32px; height:32px; border-radius:50%;
 .hook-box{ border-left:4px solid var(--teal); padding:6px 0 6px 14px; margin:18px 0; color:var(--ink-soft); font-size:14px; }
 .foot-actions{ margin-top:24px; display:flex; flex-direction:column; gap:12px; }
 .tiny{ font-size:var(--fs-tiny); color:var(--ink-soft); text-align:center; margin-top:14px; }
+
+/* —— 弹幕层 —— */
+#danmaku-layer{
+  position:fixed; inset:0; z-index:100; pointer-events:none; overflow:hidden;
+}
+.danmaku{
+  position:absolute; white-space:nowrap; font-size:14px; font-weight:700;
+  padding:6px 16px; border-radius:999px;
+  background:rgba(33,28,22,.78); color:var(--paper);
+  border:2px solid var(--ink);
+  animation:dmFly linear forwards;
+  opacity:0;
+  letter-spacing:.5px;
+}
+.danmaku.accent{ background:rgba(255,77,46,.78); color:#fff; border-color:var(--coral); }
+.danmaku.gold{ background:rgba(232,163,61,.78); color:var(--ink); border-color:var(--gold); }
+@keyframes dmFly{
+  0%{ transform:translateX(100vw); opacity:0; }
+  5%{ opacity:1; }
+  85%{ opacity:1; }
+  100%{ transform:translateX(-120%); opacity:0; }
+}
