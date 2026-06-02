@@ -105,7 +105,7 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div id="danmaku-layer"></div><div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div id="danmaku-layer"></div><div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);
@@ -284,7 +284,7 @@
     screen(`
       ${progressBar(i)}
       <div class="rise d2"><div class="q-index">${item.isCity ? '最后一题' : `第 ${i + 1} 题 / ${TOTAL}`}</div><div class="q-scene">${q.scene}</div></div>
-      <div class="talker rise d3" id="talker" style="opacity:0;transition:opacity .2s;"><div class="face" id="face">${faceSVG('wink')}</div><div class="bubble" id="roastBubble"></div></div>
+      <div class="talker rise d3" id="talker"><div class="face" id="face">${faceSVG('chill')}</div><div class="bubble" id="roastBubble">选一个呗，别紧张，反正都不会让你暴富 😏</div></div>
       <div class="rise d3" id="opts"></div>
       <div class="navbar rise d4">
         <button class="btn ghost back" id="back">上一题</button>
@@ -319,8 +319,7 @@
         const feed = opt.feed || '';
         const dim = feed.replace('egg:','').charAt(0).toUpperCase();
         bubble.textContent = ROAST[dim] || '好的，记住你的选择了 👀';
-        face.innerHTML = faceSVG(['smug','wink','chill','sour'][Math.floor(Math.random()*4)]);
-        talker.style.opacity = '1';
+        face.innerHTML = faceSVG(['smug','wink','chill'][Math.floor(Math.random()*3)]);
       };
       opts.appendChild(b);
     });
