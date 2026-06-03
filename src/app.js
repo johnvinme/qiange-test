@@ -110,7 +110,7 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><div style="display:flex;gap:6px;"><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button><button class="sound-toggle ${danmakuOn ? 'on' : ''}" id="dmBtn" aria-label="弹幕开关">${danmakuOn ? '💬' : '🚫'}</button></div></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><div style="display:flex;gap:5px;flex-shrink:0;"><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关" style="width:36px;height:36px;font-size:16px;">${SFX.isOn() ? '🔊' : '🔇'}</button><button class="sound-toggle ${danmakuOn ? 'on' : ''}" id="dmBtn" aria-label="弹幕开关" style="width:36px;height:36px;font-size:14px;">${danmakuOn ? '💬' : '🚫'}</button></div></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);

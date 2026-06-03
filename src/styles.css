@@ -33,11 +33,12 @@ body{
 
 /* —— 顶部栏：logo + 音量开关 —— */
 .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-.brand{ font-family:var(--display); font-size:22px; letter-spacing:1px; display:flex; align-items:baseline; gap:6px; }
-.brand .logo-mark{ color:var(--coral); font-weight:900; font-size:30px; display:inline-flex; align-items:baseline; -webkit-text-stroke:.9px var(--coral); letter-spacing:1.5px; animation:logoBeat 1.04s ease-in-out infinite; }
+.brand{ font-family:var(--display); font-size:19px; letter-spacing:0; display:flex; align-items:baseline; gap:3px; flex:1; min-width:0; }
+.brand .logo-mark{ color:var(--coral); font-weight:900; font-size:26px; display:inline-flex; align-items:baseline; -webkit-text-stroke:.7px var(--coral); letter-spacing:1px; animation:logoBeat 1.04s ease-in-out infinite; }
 .brand .logo-mark .dollar{ transform:skewX(-8deg); display:inline-block; }
-.brand .logo-name{ color:var(--ink); -webkit-text-stroke:.4px var(--ink); }
-.brand .byline{ font-size:10px; color:var(--paper); background:var(--ink); padding:1px 6px; border-radius:6px; letter-spacing:0; margin-left:-2px; opacity:.7; }
+.brand .logo-name{ color:var(--ink); -webkit-text-stroke:.3px var(--ink); font-size:18px; }
+.brand .byline{ font-size:9px; color:var(--paper); background:var(--ink); padding:0 4px; border-radius:5px; letter-spacing:0; margin-left:1px; opacity:.7; flex-shrink:0; }
+.sound-toggle{ flex:0 0 auto; width:42px; height:42px; border:2.5px solid var(--ink); border-radius:12px; background:var(--paper-card); font-size:19px; cursor:pointer; box-shadow:var(--shadow-soft); transition:transform .1s var(--ease-back),box-shadow .1s,background .2s; display:flex; align-items:center; justify-content:center; }
 @keyframes logoBeat{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
 .sound-toggle{
   flex:0 0 auto; width:42px; height:42px; border:2.5px solid var(--ink); border-radius:12px;
