@@ -160,6 +160,7 @@
     `);
     document.getElementById('start').onclick = () => {
       SFX.setOn(true); SFX.unlock(); SFX.play('start'); SFX.bgmStart();
+      danmakuGo();
       state.stage = 'q'; state.idx = 0; go();
     };
   }
@@ -183,7 +184,7 @@
   function danmakuGo() {
     if (danmakuTimer) return;
     const spawn = () => {
-      if (state.stage !== 'result') return;
+      if (state.stage === 'intro' || state.stage === 'loading') return;
       const layer = document.getElementById('danmaku-layer');
       if (!layer) return;
       const el = document.createElement('div');
