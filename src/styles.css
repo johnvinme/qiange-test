@@ -87,19 +87,6 @@ h1.hero em{ color:var(--coral); font-style:normal; -webkit-text-stroke:1.2px var
 .card{ background:var(--paper-card); border:2.5px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow-hard); padding:24px 22px; }
 
 /* —— 滑块（计算题 + 程度题共用）—— */
-/* —— 滑条区遮底：只为挡弹幕，不做成卡片（保持与选择题风格统一）—— */
-.slider-zone{
-  position:relative; z-index:2;          /* 盖在弹幕(z-index:0)之上 */
-  background-color:var(--paper);         /* 与页面同底色 */
-  background-image:radial-gradient(var(--paper-2) 1px,transparent 1px),radial-gradient(var(--paper-2) 1px,transparent 1px);
-  background-size:22px 22px,22px 22px;
-  background-position:0 0,11px 11px;     /* 与 body 纹理对齐，遮底彻底隐形 */
-  border-radius:var(--radius);
-  padding:10px 6px 4px;
-  margin:6px -6px 4px;
-}
-.slider-zone .talker{ margin-top:0; }
-.slider-zone .scale-ends{ margin-bottom:8px; }
 
 .slider-value{ font-family:var(--display); font-size:42px; color:var(--coral); text-align:center; margin:4px 0; -webkit-text-stroke:1px var(--coral); }
 .slider-value .u{ font-size:18px; color:var(--ink-soft); margin-left:4px; }
@@ -108,10 +95,23 @@ h1.hero em{ color:var(--coral); font-style:normal; -webkit-text-stroke:1.2px var
 /* 吐槽小人——在滑条上方 */
 .talker{ display:flex; align-items:center; gap:10px; margin:4px 0 14px; min-height:64px; }
 .face{ flex:0 0 56px; }
-.face-svg{ width:56px; height:56px; filter:drop-shadow(2px 2px 0 var(--ink)); animation:bob 2.2s ease-in-out infinite; }
+.face-svg{ width:56px; height:56px; filter:drop-shadow(2px 2px 0 var(--ink)); transform-origin:50% 70%; }
+/* 不同情绪的待机动画 */
+.fm-bob   { animation:bob 2.2s ease-in-out infinite; }
+.fm-sway  { animation:sway 1.8s ease-in-out infinite; }      /* 得意：左右晃 */
+.fm-droop { animation:droop 2.6s ease-in-out infinite; }     /* 丧：垂头叹气 */
+.fm-shake { animation:shake .5s ease-in-out infinite; }      /* 震惊：抖 */
+.fm-laugh { animation:laugh .45s ease-in-out infinite; }     /* 笑：上下颤 */
+.fm-tilt  { animation:tilt 2.4s ease-in-out infinite; }      /* 无语：歪头 */
 @keyframes bob{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
-.face.pop .face-svg{ animation:pop .3s var(--ease-back), bob 2.2s ease-in-out infinite .3s; }
-@keyframes pop{ 0%{transform:scale(.7) rotate(-8deg)} 60%{transform:scale(1.14) rotate(5deg)} 100%{transform:scale(1)} }
+@keyframes sway{ 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
+@keyframes droop{ 0%,100%{transform:translateY(0) rotate(0)} 50%{transform:translateY(4px) rotate(-4deg)} }
+@keyframes shake{ 0%,100%{transform:translate(0,0)} 25%{transform:translate(-2px,1px)} 75%{transform:translate(2px,-1px)} }
+@keyframes laugh{ 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-3px) scale(1.04)} }
+@keyframes tilt{ 0%,100%{transform:rotate(0)} 50%{transform:rotate(8deg)} }
+/* 切换瞬间弹一下：做在 .face 父层，与 svg 的情绪动画分层，互不覆盖 */
+.face.pop{ animation:pop .34s var(--ease-back); }
+@keyframes pop{ 0%{transform:scale(.7) rotate(-8deg)} 55%{transform:scale(1.16) rotate(6deg)} 100%{transform:scale(1)} }
 .bubble{ position:relative; flex:1; background:var(--paper-card); color:var(--ink); font-size:14.5px; font-weight:600; line-height:1.4; padding:12px 14px; border-radius:14px; min-height:24px; transition:opacity .15s; border:2px solid var(--ink); }
 .bubble::before{ content:''; position:absolute; left:-10px; top:50%; margin-top:-9px; border:9px solid transparent; border-right-color:var(--ink); border-left:0; }
 .bubble::after{ content:''; position:absolute; left:-6px; top:50%; margin-top:-9px; border:9px solid transparent; border-right-color:var(--paper-card); border-left:0; }
@@ -221,26 +221,3 @@ input[type=range]::-moz-range-thumb{ width:32px; height:32px; border-radius:50%;
 .act{ display:flex; flex-direction:column; gap:11px; }
 .foot-actions{ margin-top:24px; display:flex; flex-direction:column; gap:12px; }
 .tiny{ font-size:11px; color:var(--ink-soft); text-align:center; margin-top:14px; }
-
-/* —— 弹幕层（轻量、退成背景氛围）—— */
-#danmaku-layer{
-  position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
-}
-#app{ position:relative; z-index:1; }
-.danmaku{
-  position:absolute; white-space:nowrap; font-size:12px; font-weight:600;
-  padding:5px 12px; border-radius:999px;
-  background:rgba(33,28,22,.35); color:rgba(255,255,255,.85);
-  animation:dmFly linear forwards;
-  opacity:0;
-  letter-spacing:.3px;
-  border:1px solid rgba(33,28,22,.2);
-}
-.danmaku.accent{ background:rgba(255,77,46,.72); color:#fff; }
-.danmaku.gold{ background:rgba(232,163,61,.72); color:#211C16; }
-@keyframes dmFly{
-  0%{ transform:translateX(100vw); opacity:0; }
-  5%{ opacity:1; }
-  85%{ opacity:1; }
-  100%{ transform:translateX(-120%); opacity:0; }
-}

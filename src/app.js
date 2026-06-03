@@ -16,10 +16,7 @@
   };
   CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default);
 
-  // 弹幕层常驻 body，切题不销毁
-  const danmakuLayer = document.createElement('div');
-  danmakuLayer.id = 'danmaku-layer';
-  document.body.appendChild(danmakuLayer);
+  
 
   /* ============================================================
      ♪ Chiptune 音效引擎 —— Web Audio 纯合成，零文件
@@ -117,18 +114,13 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><div style="display:flex;gap:4px;"><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音" style="font-size:16px;">${SFX.isOn() ? '🔊' : '🔇'}</button><button class="sound-toggle ${dmOn ? 'on' : ''}" id="dmBtn" aria-label="弹幕" style="font-size:16px;">💬</button></div></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音" style="font-size:16px;">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);
       if (next) { SFX.unlock(); SFX.play('select'); SFX.bgmStart(); }
       else { SFX.bgmStop(); }
       sb.textContent = next ? '🔊' : '🔇'; sb.classList.toggle('on', next);
-    };
-    const db = document.getElementById('dmBtn');
-    if (db) db.onclick = () => {
-      dmOn = !dmOn; if (!dmOn) danmakuStop(); else danmakuGo();
-      db.classList.toggle('on', dmOn);
     };
   }
 
@@ -147,9 +139,25 @@
       wink: { e: '<path d="M30 46 q6 4 12 0" fill="none" stroke-width="4"/><circle cx="64" cy="46" r="4"/>', m: '<path d="M36 60 Q52 74 66 60" fill="none" stroke-width="4" stroke-linecap="round"/>' },
       dead: { e: '<path d="M32 46 L42 46"/><path d="M58 46 L68 46"/>', m: '<path d="M38 66 L62 66" stroke-width="4" stroke-linecap="round"/>' },
       money: { e: '<text x="36" y="52" font-size="16" text-anchor="middle" stroke="none">$</text><text x="64" y="52" font-size="16" text-anchor="middle" stroke="none">$</text>', m: '<path d="M34 60 Q50 76 66 60 Q50 66 34 60" stroke-width="3"/>' },
+      // —— 新增表情 ——
+      despise: { e: '<path d="M28 48 L44 44"/><path d="M56 44 L72 48"/>', m: '<path d="M40 66 L60 64" stroke-width="4" stroke-linecap="round"/>' },                                   // 斜眼鄙视
+      lol: { e: '<path d="M30 44 q6 6 12 0" fill="none" stroke-width="4"/><path d="M58 44 q6 6 12 0" fill="none" stroke-width="4"/>', m: '<path d="M36 60 Q50 78 64 60 Q50 70 36 60" stroke-width="3"/>', x: '<path d="M26 50 q-3 6 -1 11" fill="none" stroke-width="2.5" opacity=".6"/><path d="M74 50 q3 6 1 11" fill="none" stroke-width="2.5" opacity=".6"/>' }, // 笑出眼泪
+      blank: { e: '<circle cx="36" cy="46" r="6" fill="#FFD27D" stroke="#211C16" stroke-width="2.5"/><circle cx="64" cy="46" r="6" fill="#FFD27D" stroke="#211C16" stroke-width="2.5"/>', m: '<path d="M40 66 L60 66" stroke-width="4" stroke-linecap="round"/>' }, // 翻白眼
+      sweat: { e: '<path d="M30 47 q6 -3 12 0"/><circle cx="64" cy="46" r="4"/>', m: '<path d="M40 67 q10 -4 20 0" fill="none" stroke-width="4" stroke-linecap="round"/>', x: '<path d="M74 38 q5 7 0 13 q-5 -6 0 -13" fill="#7EC8E3" stroke="#211C16" stroke-width="2"/>' }, // 尴尬流汗
+      star: { e: '<text x="36" y="52" font-size="18" text-anchor="middle" stroke="none">★</text><text x="64" y="52" font-size="18" text-anchor="middle" stroke="none">★</text>', m: '<path d="M34 60 Q50 78 66 60" fill="none" stroke-width="4" stroke-linecap="round"/>' }, // 闪光星眼
+      broke: { e: '<path d="M30 42 L42 48 M30 48 L42 42"/><path d="M58 42 L70 48 M58 48 L70 42"/>', m: '<path d="M38 68 q12 -6 24 0" fill="none" stroke-width="4" stroke-linecap="round"/>', x: '<path d="M50 30 L46 44 L54 50 L48 62" fill="none" stroke-width="2.5" opacity=".5"/>' }, // 裂开（XX眼）
     };
     const f = F[mood] || F.chill;
-    return `<svg viewBox="0 0 100 100" class="face-svg" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="#FFD27D" stroke="#211C16" stroke-width="4"/><circle cx="30" cy="60" r="6" fill="#FF4D2E" opacity=".35" stroke="none"/><circle cx="70" cy="60" r="6" fill="#FF4D2E" opacity=".35" stroke="none"/><g fill="#211C16" stroke="#211C16">${f.e}${f.m}${f.x || ''}</g></svg>`;
+    // 情绪分组 → 不同动画 class
+    const animMap = {
+      smug: 'fm-sway', money: 'fm-sway', star: 'fm-sway',      // 得意：左右晃
+      cry: 'fm-droop', dead: 'fm-droop', broke: 'fm-droop',     // 丧：垂头
+      wow: 'fm-shake', sweat: 'fm-shake',                        // 震惊：抖
+      lol: 'fm-laugh',                                           // 笑：上下抖动
+      roll: 'fm-tilt', despise: 'fm-tilt', blank: 'fm-tilt',     // 无语：歪头
+    };
+    const anim = animMap[mood] || 'fm-bob';
+    return `<svg viewBox="0 0 100 100" class="face-svg ${anim}" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="#FFD27D" stroke="#211C16" stroke-width="4"/><circle cx="30" cy="60" r="6" fill="#FF4D2E" opacity=".35" stroke="none"/><circle cx="70" cy="60" r="6" fill="#FF4D2E" opacity=".35" stroke="none"/><g fill="#211C16" stroke="#211C16">${f.e}${f.m}${f.x || ''}</g></svg>`;
   }
 
   /* —— 滑块档位工具 —— */
@@ -172,47 +180,10 @@
     `);
     document.getElementById('start').onclick = () => {
       SFX.setOn(true); SFX.unlock(); SFX.play('start'); SFX.bgmStart();
-      danmakuGo();
       state.stage = 'q'; state.idx = 0; go();
     };
   }
 
-  /* ============================================================
-     弹幕引擎 —— 预制毒舌弹幕，答题时从右飘到左
-     ============================================================ */
-  const DANMAKU_POOL = [
-    '上个月也是这么说的', '存钱？下个月一定', '这个选项是在暗示我穷吗',
-    '笑死，根本不知道选哪个', '花呗：该来的总会来的', '余额：你礼貌吗',
-    '我妈看到会说"你看吧"', '假装在认真思考', '选C！不选A！反正都是错的',
-    '这题我做过——我是说上一轮', '有人已经测出了吃土圣体', '你的存款正在远程嘲笑你',
-    '奶茶钱省一省，退休早一年', '别想了，你心里已经有答案了', '正在偷看别人的答案…',
-    '有人选了跟你一样的选项并穷着', '理财第一步：打开这个测试', '当你看到这条弹幕时钱又少了',
-    '填空题最难的是面对真实的自己', '加油，离退休又近了一道题', '搞钱搞不动，弹幕先飘一会儿',
-    '基金绿了，弹幕也绿了（并没有）','有人边吃外卖边做这个测试', '这题我选D——D是哪个来着',
-    '测完发朋友圈的都是勇士', '前面那个选A的等等我', '弹幕比题目有意思系列',
-    '大数据告诉我你是个月光', '已有人分享结果并获得"你疯了吧"评论', '钱格测试，测完更焦虑（开玩笑的）',
-  ];
-  let danmakuTimer = null;
-  let dmOn = true;
-  function danmakuGo() {
-    if (danmakuTimer) return;
-    const spawn = () => {
-      if (!dmOn || state.stage === 'intro' || state.stage === 'loading') return;
-      const layer = document.getElementById('danmaku-layer');
-      if (!layer) return;
-      const el = document.createElement('div');
-      el.className = 'danmaku ' + (Math.random() < 0.2 ? 'accent' : (Math.random() < 0.15 ? 'gold' : ''));
-      el.textContent = DANMAKU_POOL[Math.floor(Math.random() * DANMAKU_POOL.length)];
-      el.style.top = (8 + Math.random() * 82) + '%';
-      el.style.animationDuration = (7 + Math.random() * 8) + 's';
-      el.style.fontSize = (11 + Math.random() * 5) + 'px';
-      layer.appendChild(el);
-      el.addEventListener('animationend', () => el.remove());
-    };
-    setTimeout(spawn, 400);
-    danmakuTimer = setInterval(spawn, 1200 + Math.random() * 1500);
-  }
-  function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } danmakuLayer.innerHTML = ''; }
 
   /* —— 计算题（滑块，小人上方）—— */
   function renderCalc(item, i) {
@@ -224,7 +195,7 @@
     screen(`
       ${progressBar(i)}
       <div class="rise d2"><div class="q-index">第 ${i + 1} 题 / ${TOTAL}</div><div class="q-scene">${q.label}</div></div>
-      <div class="rise d3 slider-zone">
+      <div class="rise d3">
         <div class="talker"><div class="face" id="face">${faceSVG(quip0.mood)}</div><div class="bubble" id="quip">${quip0.text}</div></div>
         <div class="slider-value"><span id="sv">${fmt(val)}</span><span class="u">${q.unit}</span></div>
         <input type="range" id="rng" ${attrs}>
@@ -261,7 +232,7 @@
     screen(`
       ${progressBar(i)}
       <div class="rise d2"><div class="q-index">第 ${i + 1} 题 / ${TOTAL}</div><div class="q-scene">${q.scene}</div></div>
-      <div class="rise d3 slider-zone">
+      <div class="rise d3">
         <div class="talker"><div class="face" id="face">${faceSVG(s0.m)}</div><div class="bubble" id="quip">${s0.t}</div></div>
         <input type="range" id="rng" min="0" max="${q.stops.length - 1}" step="1" value="${startIdx}">
         <div class="scale-ends"><span>${q.left}</span><span>${q.right}</span></div>
@@ -525,9 +496,6 @@
       <canvas id="cardCanvas" width="900" height="1260" style="display:none"></canvas>
     `);
 
-    // 弹幕启动（仅结果页，受全局开关控制）
-    danmakuGo();
-
     // 收益率切换
     const tabs = root.querySelectorAll('.compare-tab');
     const big = document.getElementById('cmpBig'), cap = document.getElementById('cmpCap'), body = document.getElementById('cmpBody');
@@ -556,7 +524,7 @@
       fa.innerHTML = `<button class="btn coral" id="save">保存我的结果图，去晒 📸</button>
         <button class="btn" id="shareBtn">复制分享链接</button>
         <button class="btn ghost" id="restart">重测一次</button>`;
-      document.getElementById('restart').onclick = () => { SFX.play('tap'); danmakuStop(); state.stage = 'intro'; state.idx = 0; state.answers = {}; CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default); go(); };
+      document.getElementById('restart').onclick = () => { SFX.play('tap'); state.stage = 'intro'; state.idx = 0; state.answers = {}; CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default); go(); };
       document.getElementById('save').onclick = () => { SFX.play('press'); buildShareCard(r, p); };
       document.getElementById('shareBtn').onclick = () => {
         const link = location.origin + location.pathname + '?r=' + encodeResult(r);
