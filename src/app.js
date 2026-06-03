@@ -345,7 +345,7 @@
         <div class="talker rise d3"><div class="face" id="face">${faceSVG(mood)}</div><div class="bubble" id="bubble">${bubbleText}</div></div>
         <div class="rise d3">
           <div class="city-search"><input type="text" id="cityInput" placeholder="输入城市名，如 成都、长沙…" value="${picked || ''}" autocomplete="off"><div id="suggest"></div></div>
-          <div class="hint-tiny" style="font-size:12px;color:var(--ink-soft);margin-bottom:18px;">或者直接点：</div>
+          <div class="hint-tiny" style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;">或者直接点（可以多点几个城市，看看小人怎么吐槽😏）：</div>
           <div class="hotcities" id="hot">
             ${(expanded ? ALL_CAPITALS : HOT_CITIES).map(c => `<div class="hotcity ${picked === c ? 'picked' : ''}" data-c="${c}">${c}</div>`).join('')}
             ${expanded ? '' : '<div class="hotcity more" data-more="1">全部省会 ▾</div>'}
@@ -362,13 +362,18 @@
       function pick(city) {
         state.answers['city'] = { feed: 'city:' + city };
         SFX.play('select');
-        // 小人回嘴换quip
+        // 小人回嘴换 quip（不自动跳，让用户可以多点几个城市看吐槽）
         const fb = document.getElementById('bubble');
         const fc = document.getElementById('face');
-        if (fb) fb.textContent = CITY_META[city] ? CITY_META[city].quip : '在哪搞钱不重要，穷起来全国统一';
-        if (fc) fc.innerHTML = faceSVG('smug');
-        // 0.5 秒后跳结果
-        setTimeout(() => { SFX.play('tap'); state.idx = i + 1; go(); }, 500);
+        const quip = CITY_META[city] ? CITY_META[city].quip : '在哪搞钱不重要，穷起来全国统一';
+        if (fb) { fb.textContent = quip; fb.classList.remove('swap'); void fb.offsetWidth; fb.classList.add('swap'); }
+        if (fc) { fc.innerHTML = faceSVG('smug'); fc.classList.remove('pop'); void fc.offsetWidth; fc.classList.add('pop'); }
+        // 高亮已选、清空联想、回填输入框、解锁"看结果"按钮
+        suggest.innerHTML = '';
+        if (input) input.value = (city === '其他') ? '' : city;
+        document.querySelectorAll('#hot .hotcity').forEach(el => el.classList.toggle('picked', el.dataset.c === city));
+        const nx = document.getElementById('next');
+        if (nx) { nx.disabled = false; }
       }
       input.oninput = () => {
         const v = input.value.trim();
@@ -404,7 +409,12 @@
     const t = setInterval(() => { n = (n + 1) % LOAD.length; if (el) el.textContent = LOAD[n]; }, 700);
     setTimeout(() => {
       clearInterval(t);
-      state.result = window.QGEngine.analyze(state.calc);
+      // 收集所有性格题的 feed（含滑块题/选择题，城市与彩蛋会在 engine 里自动忽略）
+      const feeds = Object.keys(state.answers)
+        .filter((id) => id !== 'city')
+        .map((id) => state.answers[id] && state.answers[id].feed)
+        .filter(Boolean);
+      state.result = window.QGEngine.analyze(state.calc, feeds);
       state.stage = 'result';
       SFX.play('fanfare');
       go();

@@ -120,22 +120,64 @@ function computeRetirement(inputs) {
  * 返回 { code:'LSPA', dims:{start, save, principal, ambition}, scores }
  * scores 为 0~1，用于雷达图
  * ============================================================ */
-function computeDimensions(inputs) {
+/* ============================================================
+ * 四维度判定 → 四字母人格码
+ * ------------------------------------------------------------
+ * 设计：计算题打底（70% 权重，主导）+ 性格题摇摆票（30% 权重，微调）
+ *   - 退休年龄/该存多少/排名 完全不受性格题影响（数字保真红线）
+ *   - 只有"人格码"会被性格题影响 —— 让用户答的性格题真正有用
+ * 入参 personalityFeeds: 性格题选中选项的 feed 数组，如 ['R','C','H',...]
+ *   （'city:'、'egg:' 开头的不参与维度，忽略）
+ * 返回 { code, dims, scores }
+ * ============================================================ */
+function computeDimensions(inputs, personalityFeeds) {
   const t = CONFIG.thresholds;
   const yearsToRetire = inputs.retireAge - inputs.currentAge;
 
-  const start = yearsToRetire >= t.earlyYears ? 'E' : 'L';          // 起步早晚
-  const save = inputs.monthlySave >= t.saveMonthly ? 'R' : 'C';     // 储蓄强度
-  const principal = inputs.currentSavings >= t.principal ? 'M' : 'B'; // 本金厚薄
-  const desire = inputs.monthlyRetireSpend >= t.spendMonthly ? 'H' : 'S'; // 物欲强度
+  // —— 第一步：计算题给"基础分" 0~1（0.5 为分界）——
+  // 用 sigmoid-like 归一：值=阈值时正好 0.5，越远离阈值越接近 0 或 1
+  const baseScore = (val, threshold) => {
+    // 以阈值为中点，threshold 本身映射到 0.5；用平滑曲线避免突变
+    const ratio = val / threshold;            // 1 = 正好在阈值
+    return Math.max(0.02, Math.min(0.98, 0.5 * Math.pow(ratio, 0.7)));
+  };
+  // 每维基础分（>0.5 偏向第一个字母）
+  let s = {
+    start:     baseScore(yearsToRetire, t.earlyYears),       // 高→E
+    save:      baseScore(inputs.monthlySave, t.saveMonthly), // 高→R
+    principal: baseScore(inputs.currentSavings, t.principal),// 高→M
+    desire:    baseScore(inputs.monthlyRetireSpend, t.spendMonthly), // 高→H
+  };
 
-  // 0~1 归一化分数（仅用于雷达图视觉，clamp 到 [0.08, 1]）
+  // —— 第二步：性格题"摇摆票"微调（每票 ±0.06，封顶 ±0.3 总影响）——
+  // feed 字母含义：E↔L(start) · R↔C(save) · M↔B(principal) · H↔S(desire)
+  const VOTE = 0.06, CAP = 0.30;
+  if (Array.isArray(personalityFeeds)) {
+    const tally = { start:0, save:0, principal:0, desire:0 };
+    personalityFeeds.forEach((f) => {
+      if (!f || f.indexOf(':') >= 0) return;   // 跳过 city: / egg:
+      if (f === 'E') tally.start += 1;     else if (f === 'L') tally.start -= 1;
+      else if (f === 'R') tally.save += 1; else if (f === 'C') tally.save -= 1;
+      else if (f === 'M') tally.principal += 1; else if (f === 'B') tally.principal -= 1;
+      else if (f === 'H') tally.desire += 1;    else if (f === 'S') tally.desire -= 1;
+    });
+    Object.keys(tally).forEach((k) => {
+      const adj = Math.max(-CAP, Math.min(CAP, tally[k] * VOTE));
+      s[k] = Math.max(0.02, Math.min(0.98, s[k] + adj));
+    });
+  }
+
+  // —— 第三步：分数 → 字母 ——
+  const start     = s.start     >= 0.5 ? 'E' : 'L';
+  const save      = s.save      >= 0.5 ? 'R' : 'C';
+  const principal = s.principal >= 0.5 ? 'M' : 'B';
+  const desire    = s.desire    >= 0.5 ? 'H' : 'S';
+
+  // scores 用于雷达/属性条视觉，clamp 到 [0.08, 1]
   const clamp01 = (x) => Math.max(0.08, Math.min(1, x));
   const scores = {
-    start: clamp01(yearsToRetire / (t.earlyYears * 1.6)),
-    save: clamp01(inputs.monthlySave / (t.saveMonthly * 2)),
-    principal: clamp01(inputs.currentSavings / (t.principal * 3)),
-    desire: clamp01(inputs.monthlyRetireSpend / (t.spendMonthly * 2)),
+    start: clamp01(s.start), save: clamp01(s.save),
+    principal: clamp01(s.principal), desire: clamp01(s.desire),
   };
 
   return {
@@ -187,9 +229,9 @@ function monthlyNeededAt(inputs, annualReturn) {
 }
 
 /* ---------- 一次性算全部，给 UI 用 ---------- */
-function analyze(inputs) {
+function analyze(inputs, personalityFeeds) {
   const retirement = computeRetirement(inputs);
-  const dimensions = computeDimensions(inputs);
+  const dimensions = computeDimensions(inputs, personalityFeeds);
   // 排名按合理理财(10%)算，给人希望
   const r10 = retireAgeAt(inputs, 0.10);
   const ageForRank = isFinite(r10) ? r10 : CONFIG.ranking.baselineRetireAge + 32;
