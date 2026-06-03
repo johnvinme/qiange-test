@@ -86,7 +86,10 @@
     const binStr = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
     const bytes = Uint8Array.from(binStr, c => c.charCodeAt(0));
     const o = JSON.parse(new TextDecoder().decode(bytes));
-    return { dimensions: { code: o.c, scores: o.s }, retirement: { achievableRetireAge: o.a, monthlySaveNeeded: o.m }, cityPercentile: o.p, r2: o.r2, r10: o.r10, need2: o.n2, need10: o.n10 };
+    // 从code重建dims（分享链接不带完整dimensions对象）
+    const code = o.c;
+    const dims = { start: code[0], save: code[1], principal: code[2], desire: code[3] };
+    return { dimensions: { code, scores: o.s, dims }, retirement: { achievableRetireAge: o.a, monthlySaveNeeded: o.m }, cityPercentile: o.p, r2: o.r2, r10: o.r10, need2: o.n2, need10: o.n10 };
   }
 
   /* ============================================================
