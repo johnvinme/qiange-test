@@ -87,6 +87,20 @@ h1.hero em{ color:var(--coral); font-style:normal; -webkit-text-stroke:1.2px var
 .card{ background:var(--paper-card); border:2.5px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow-hard); padding:24px 22px; }
 
 /* —— 滑块（计算题 + 程度题共用）—— */
+/* —— 滑条区遮底：只为挡弹幕，不做成卡片（保持与选择题风格统一）—— */
+.slider-zone{
+  position:relative; z-index:2;          /* 盖在弹幕(z-index:0)之上 */
+  background-color:var(--paper);         /* 与页面同底色 */
+  background-image:radial-gradient(var(--paper-2) 1px,transparent 1px),radial-gradient(var(--paper-2) 1px,transparent 1px);
+  background-size:22px 22px,22px 22px;
+  background-position:0 0,11px 11px;     /* 与 body 纹理对齐，遮底彻底隐形 */
+  border-radius:var(--radius);
+  padding:10px 6px 4px;
+  margin:6px -6px 4px;
+}
+.slider-zone .talker{ margin-top:0; }
+.slider-zone .scale-ends{ margin-bottom:8px; }
+
 .slider-value{ font-family:var(--display); font-size:42px; color:var(--coral); text-align:center; margin:4px 0; -webkit-text-stroke:1px var(--coral); }
 .slider-value .u{ font-size:18px; color:var(--ink-soft); margin-left:4px; }
 .slider-value .lbl{ font-size:30px; }

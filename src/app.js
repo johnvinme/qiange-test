@@ -224,7 +224,7 @@
     screen(`
       ${progressBar(i)}
       <div class="rise d2"><div class="q-index">第 ${i + 1} 题 / ${TOTAL}</div><div class="q-scene">${q.label}</div></div>
-      <div class="rise d3">
+      <div class="rise d3 slider-zone">
         <div class="talker"><div class="face" id="face">${faceSVG(quip0.mood)}</div><div class="bubble" id="quip">${quip0.text}</div></div>
         <div class="slider-value"><span id="sv">${fmt(val)}</span><span class="u">${q.unit}</span></div>
         <input type="range" id="rng" ${attrs}>
@@ -261,7 +261,7 @@
     screen(`
       ${progressBar(i)}
       <div class="rise d2"><div class="q-index">第 ${i + 1} 题 / ${TOTAL}</div><div class="q-scene">${q.scene}</div></div>
-      <div class="rise d3">
+      <div class="rise d3 slider-zone">
         <div class="talker"><div class="face" id="face">${faceSVG(s0.m)}</div><div class="bubble" id="quip">${s0.t}</div></div>
         <input type="range" id="rng" min="0" max="${q.stops.length - 1}" step="1" value="${startIdx}">
         <div class="scale-ends"><span>${q.left}</span><span>${q.right}</span></div>
