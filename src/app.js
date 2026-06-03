@@ -185,6 +185,8 @@
     '大数据告诉我你是个月光', '已有人分享结果并获得"你疯了吧"评论', '钱格测试，测完更焦虑（开玩笑的）',
   ];
   let danmakuTimer = null;
+  let danmakuOn = true;
+  function danmakuToggle() { danmakuOn = !danmakuOn; if (danmakuOn) danmakuStart(); else danmakuStop(); return danmakuOn; }
   function danmakuStart() {
     if (danmakuTimer) return;
     const spawn = () => {
@@ -204,9 +206,7 @@
     setTimeout(() => spawn(), 500); // 首屏渲染后再触发，不用等第一个 interval
     danmakuTimer = setInterval(spawn, 1400 + Math.random() * 1600);
   }
-  let danmakuOn = true;
   function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } danmakuLayer.innerHTML = ''; }
-  function danmakuToggle() { danmakuOn = !danmakuOn; if (danmakuOn) danmakuStart(); else danmakuStop(); return danmakuOn; }
 
   /* —— 计算题（滑块，小人上方）—— */
   function renderCalc(item, i) {

@@ -214,16 +214,15 @@ input[type=range]::-moz-range-thumb{ width:32px; height:32px; border-radius:50%;
 }
 #app{ position:relative; z-index:2; }
 .danmaku{
-  position:absolute; white-space:nowrap; font-size:12px; font-weight:600;
-  padding:5px 12px; border-radius:999px;
-  background:rgba(33,28,22,.4); color:var(--paper);
+  position:absolute; white-space:nowrap; font-size:13px; font-weight:600;
+  padding:6px 14px; border-radius:999px;
+  background:rgba(33,28,22,.55); color:var(--paper);
   animation:dmFly linear forwards;
   opacity:0;
   letter-spacing:.4px;
-  backdrop-filter:blur(1px);
 }
-.danmaku.accent{ background:rgba(255,77,46,.38); color:#fff; }
-.danmaku.gold{ background:rgba(232,163,61,.38); color:var(--ink); }
+.danmaku.accent{ background:rgba(255,77,46,.55); color:#fff; }
+.danmaku.gold{ background:rgba(232,163,61,.55); color:var(--ink); }
 @keyframes dmFly{
   0%{ transform:translateX(100vw); opacity:0; }
   5%{ opacity:1; }
