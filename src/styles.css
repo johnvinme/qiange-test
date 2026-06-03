@@ -216,7 +216,7 @@ input[type=range]::-moz-range-thumb{ width:32px; height:32px; border-radius:50%;
 .danmaku{
   position:absolute; white-space:nowrap; font-size:12px; font-weight:600;
   padding:5px 12px; border-radius:999px;
-  background:rgba(33,28,22,.72); color:#FBF6EA;
+  background:rgba(33,28,22,.35); color:rgba(255,255,255,.85);
   animation:dmFly linear forwards;
   opacity:0;
   letter-spacing:.3px;
