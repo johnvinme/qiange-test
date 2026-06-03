@@ -110,13 +110,18 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><div style="display:flex;gap:4px;"><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音">${SFX.isOn() ? '🔊' : '🔇'}</button><button class="sound-toggle ${dmOn ? 'on' : ''}" id="dmBtn" aria-label="弹幕">💬</button></div></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);
       if (next) { SFX.unlock(); SFX.play('select'); SFX.bgmStart(); }
       else { SFX.bgmStop(); }
       sb.textContent = next ? '🔊' : '🔇'; sb.classList.toggle('on', next);
+    };
+    const db = document.getElementById('dmBtn');
+    if (db) db.onclick = () => {
+      dmOn = !dmOn; if (!dmOn) danmakuStop(); else danmakuGo();
+      db.classList.toggle('on', dmOn);
     };
   }
 
@@ -181,10 +186,11 @@
     '大数据告诉我你是个月光', '已有人分享结果并获得"你疯了吧"评论', '钱格测试，测完更焦虑（开玩笑的）',
   ];
   let danmakuTimer = null;
+  let dmOn = true;
   function danmakuGo() {
     if (danmakuTimer) return;
     const spawn = () => {
-      if (state.stage === 'intro' || state.stage === 'loading') return;
+      if (!dmOn || state.stage === 'intro' || state.stage === 'loading') return;
       const layer = document.getElementById('danmaku-layer');
       if (!layer) return;
       const el = document.createElement('div');

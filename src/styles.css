@@ -210,19 +210,19 @@ input[type=range]::-moz-range-thumb{ width:32px; height:32px; border-radius:50%;
 
 /* —— 弹幕层（轻量、退成背景氛围）—— */
 #danmaku-layer{
-  position:fixed; inset:0; z-index:1; pointer-events:none; overflow:hidden;
+  position:fixed; inset:0; z-index:5; pointer-events:none; overflow:hidden;
 }
-#app{ position:relative; z-index:2; }
 .danmaku{
-  position:absolute; white-space:nowrap; font-size:13px; font-weight:600;
-  padding:6px 14px; border-radius:999px;
-  background:rgba(33,28,22,.55); color:var(--paper);
+  position:absolute; white-space:nowrap; font-size:12px; font-weight:600;
+  padding:5px 12px; border-radius:999px;
+  background:rgba(33,28,22,.72); color:#FBF6EA;
   animation:dmFly linear forwards;
   opacity:0;
-  letter-spacing:.4px;
+  letter-spacing:.3px;
+  border:1px solid rgba(33,28,22,.2);
 }
-.danmaku.accent{ background:rgba(255,77,46,.55); color:#fff; }
-.danmaku.gold{ background:rgba(232,163,61,.55); color:var(--ink); }
+.danmaku.accent{ background:rgba(255,77,46,.72); color:#fff; }
+.danmaku.gold{ background:rgba(232,163,61,.72); color:#211C16; }
 @keyframes dmFly{
   0%{ transform:translateX(100vw); opacity:0; }
   5%{ opacity:1; }
