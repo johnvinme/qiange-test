@@ -385,8 +385,12 @@
       function pick(city) {
         state.answers['city'] = { feed: 'city:' + city };
         SFX.play('select');
-        doRender();
-        // 选完自动跳结果
+        // 小人回嘴换quip
+        const fb = document.getElementById('bubble');
+        const fc = document.getElementById('face');
+        if (fb) fb.textContent = CITY_META[city] ? CITY_META[city].quip : '在哪搞钱不重要，穷起来全国统一';
+        if (fc) fc.innerHTML = faceSVG('smug');
+        // 0.5 秒后跳结果
         setTimeout(() => { SFX.play('tap'); state.idx = i + 1; go(); }, 500);
       }
       input.oninput = () => {
