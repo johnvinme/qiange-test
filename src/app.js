@@ -110,18 +110,13 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><div style="display:flex;gap:5px;flex-shrink:0;"><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关" style="width:36px;height:36px;font-size:16px;">${SFX.isOn() ? '🔊' : '🔇'}</button><button class="sound-toggle ${danmakuOn ? 'on' : ''}" id="dmBtn" aria-label="弹幕开关" style="width:36px;height:36px;font-size:14px;">${danmakuOn ? '💬' : '🚫'}</button></div></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);
       if (next) { SFX.unlock(); SFX.play('select'); SFX.bgmStart(); }
       else { SFX.bgmStop(); }
       sb.textContent = next ? '🔊' : '🔇'; sb.classList.toggle('on', next);
-    };
-    const db = document.getElementById('dmBtn');
-    if (db) db.onclick = () => {
-      const on = danmakuToggle();
-      db.textContent = on ? '💬' : '🚫'; db.classList.toggle('on', on);
     };
   }
 
@@ -185,26 +180,23 @@
     '大数据告诉我你是个月光', '已有人分享结果并获得"你疯了吧"评论', '钱格测试，测完更焦虑（开玩笑的）',
   ];
   let danmakuTimer = null;
-  let danmakuOn = true;
-  function danmakuToggle() { danmakuOn = !danmakuOn; if (danmakuOn) danmakuStart(); else danmakuStop(); return danmakuOn; }
-  function danmakuStart() {
+  function danmakuGo() {
     if (danmakuTimer) return;
     const spawn = () => {
-      if (!danmakuOn || state.stage !== 'result') return;
-      const layer = document.getElementById('danmaku-layer'); // 每次重新查，防页面切换后引用失效
+      if (state.stage !== 'result') return;
+      const layer = document.getElementById('danmaku-layer');
       if (!layer) return;
       const el = document.createElement('div');
-      const cls = Math.random() < 0.2 ? 'accent' : (Math.random() < 0.15 ? 'gold' : '');
-      el.className = 'danmaku ' + cls;
+      el.className = 'danmaku ' + (Math.random() < 0.2 ? 'accent' : (Math.random() < 0.15 ? 'gold' : ''));
       el.textContent = DANMAKU_POOL[Math.floor(Math.random() * DANMAKU_POOL.length)];
       el.style.top = (8 + Math.random() * 82) + '%';
       el.style.animationDuration = (7 + Math.random() * 8) + 's';
-      el.style.fontSize = (13 + Math.random() * 6) + 'px';
+      el.style.fontSize = (11 + Math.random() * 5) + 'px';
       layer.appendChild(el);
       el.addEventListener('animationend', () => el.remove());
     };
-    setTimeout(() => spawn(), 500); // 首屏渲染后再触发，不用等第一个 interval
-    danmakuTimer = setInterval(spawn, 1400 + Math.random() * 1600);
+    setTimeout(spawn, 400);
+    danmakuTimer = setInterval(spawn, 1200 + Math.random() * 1500);
   }
   function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } danmakuLayer.innerHTML = ''; }
 
@@ -520,7 +512,7 @@
     `);
 
     // 弹幕启动（仅结果页，受全局开关控制）
-    if (danmakuOn) danmakuStart();
+    danmakuGo();
 
     // 收益率切换
     const tabs = root.querySelectorAll('.compare-tab');
@@ -550,7 +542,7 @@
       fa.innerHTML = `<button class="btn coral" id="save">保存我的结果图，去晒 📸</button>
         <button class="btn" id="shareBtn">复制分享链接</button>
         <button class="btn ghost" id="restart">重测一次</button>`;
-      document.getElementById('restart').onclick = () => { SFX.play('tap'); state.stage = 'intro'; state.idx = 0; state.answers = {}; CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default); go(); };
+      document.getElementById('restart').onclick = () => { SFX.play('tap'); danmakuStop(); state.stage = 'intro'; state.idx = 0; state.answers = {}; CALC_QUESTIONS.forEach(q => state.calc[q.key] = q.default); go(); };
       document.getElementById('save').onclick = () => { SFX.play('press'); buildShareCard(r, p); };
       document.getElementById('shareBtn').onclick = () => {
         const link = location.origin + location.pathname + '?r=' + encodeResult(r);
