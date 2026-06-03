@@ -73,7 +73,11 @@
     const o = { c: res.dimensions.code, s: res.dimensions.scores,
       a: isFinite(res.retirement.achievableRetireAge) ? res.retirement.achievableRetireAge : null,
       m: isFinite(res.retirement.monthlySaveNeeded) ? res.retirement.monthlySaveNeeded : null,
-      p: res.cityPercentile };
+      p: res.cityPercentile,
+      r2: isFinite(res.r2) ? res.r2 : null,
+      r10: isFinite(res.r10) ? res.r10 : null,
+      n2: isFinite(res.need2) ? res.need2 : null,
+      n10: isFinite(res.need10) ? res.need10 : null };
     const bytes = new TextEncoder().encode(JSON.stringify(o));
     const binStr = String.fromCharCode(...bytes);
     return btoa(binStr).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -82,7 +86,7 @@
     const binStr = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
     const bytes = Uint8Array.from(binStr, c => c.charCodeAt(0));
     const o = JSON.parse(new TextDecoder().decode(bytes));
-    return { dimensions: { code: o.c, scores: o.s }, retirement: { achievableRetireAge: o.a, monthlySaveNeeded: o.m }, cityPercentile: o.p };
+    return { dimensions: { code: o.c, scores: o.s }, retirement: { achievableRetireAge: o.a, monthlySaveNeeded: o.m }, cityPercentile: o.p, r2: o.r2, r10: o.r10, need2: o.n2, need10: o.n10 };
   }
 
   /* ============================================================
@@ -110,7 +114,7 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><div style="display:flex;gap:4px;"><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音">${SFX.isOn() ? '🔊' : '🔇'}</button><button class="sound-toggle ${dmOn ? 'on' : ''}" id="dmBtn" aria-label="弹幕">💬</button></div></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span><span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><div style="display:flex;gap:4px;"><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音" style="font-size:16px;">${SFX.isOn() ? '🔊' : '🔇'}</button><button class="sound-toggle ${dmOn ? 'on' : ''}" id="dmBtn" aria-label="弹幕" style="font-size:16px;">💬</button></div></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);
