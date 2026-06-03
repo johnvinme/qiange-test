@@ -188,7 +188,7 @@
   function danmakuStart() {
     if (danmakuTimer) return;
     const spawn = () => {
-      if (state.stage === 'intro' || state.stage === 'loading') return;
+      if (!danmakuOn || state.stage !== 'result') return;
       const layer = document.getElementById('danmaku-layer'); // 每次重新查，防页面切换后引用失效
       if (!layer) return;
       const el = document.createElement('div');
@@ -204,7 +204,9 @@
     setTimeout(() => spawn(), 500); // 首屏渲染后再触发，不用等第一个 interval
     danmakuTimer = setInterval(spawn, 1400 + Math.random() * 1600);
   }
-  function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } }
+  let danmakuOn = true;
+  function danmakuStop() { if (danmakuTimer) { clearInterval(danmakuTimer); danmakuTimer = null; } danmakuLayer.innerHTML = ''; }
+  function danmakuToggle() { danmakuOn = !danmakuOn; if (danmakuOn) danmakuStart(); else danmakuStop(); return danmakuOn; }
 
   /* —— 计算题（滑块，小人上方）—— */
   function renderCalc(item, i) {
