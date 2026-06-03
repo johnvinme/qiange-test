@@ -110,13 +110,18 @@
     else renderFn();
   }
   function screen(html) {
-    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button></div><div class="screen enter">${html}</div>`;
+    root.innerHTML = `<div class="topbar"><div class="brand"><span class="logo-mark"><span class="dollar">$</span>BTI</span>&nbsp;<span class="logo-name">钱格测试</span><span class="byline">by zcw</span></div><div style="display:flex;gap:6px;"><button class="sound-toggle ${SFX.isOn() ? 'on' : ''}" id="sndBtn" aria-label="声音开关">${SFX.isOn() ? '🔊' : '🔇'}</button><button class="sound-toggle ${danmakuOn ? 'on' : ''}" id="dmBtn" aria-label="弹幕开关">${danmakuOn ? '💬' : '🚫'}</button></div></div><div class="screen enter">${html}</div>`;
     const sb = document.getElementById('sndBtn');
     if (sb) sb.onclick = () => {
       const next = !SFX.isOn(); SFX.setOn(next);
       if (next) { SFX.unlock(); SFX.play('select'); SFX.bgmStart(); }
       else { SFX.bgmStop(); }
       sb.textContent = next ? '🔊' : '🔇'; sb.classList.toggle('on', next);
+    };
+    const db = document.getElementById('dmBtn');
+    if (db) db.onclick = () => {
+      const on = danmakuToggle();
+      db.textContent = on ? '💬' : '🚫'; db.classList.toggle('on', on);
     };
   }
 
@@ -160,7 +165,6 @@
     `);
     document.getElementById('start').onclick = () => {
       SFX.setOn(true); SFX.unlock(); SFX.play('start'); SFX.bgmStart();
-      danmakuStart();
       state.stage = 'q'; state.idx = 0; go();
     };
   }
@@ -380,6 +384,8 @@
         state.answers['city'] = { feed: 'city:' + city };
         SFX.play('select');
         doRender();
+        // 选完自动跳结果
+        setTimeout(() => { SFX.play('tap'); state.idx = i + 1; go(); }, 500);
       }
       input.oninput = () => {
         const v = input.value.trim();
@@ -506,6 +512,9 @@
       <p class="tiny">数字基于复利模型和你的关键数据测算，仅供娱乐参考。</p>
       <canvas id="cardCanvas" width="900" height="1260" style="display:none"></canvas>
     `);
+
+    // 弹幕启动（仅结果页，受全局开关控制）
+    if (danmakuOn) danmakuStart();
 
     // 收益率切换
     const tabs = root.querySelectorAll('.compare-tab');
